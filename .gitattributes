@@ -1,0 +1,2 @@
+# Preserve legacy artwork byte-for-byte, including historical whitespace.
+legacy/** -whitespace
