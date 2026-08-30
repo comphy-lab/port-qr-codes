@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import base64
 import html
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,11 +13,11 @@ from pathlib import Path
 import segno
 
 
-OUTDIR = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent
+OUTDIR = ROOT / "current"
 COMPHY_MARK = Path(
-    "/Users/vatsal/cowork-os/1-github/2-CVetAl-websites/"
-    "comphy-lab.github.io/assets/favicon/web-app-manifest-512x512.png"
-)
+    os.environ.get("COMPHY_QR_MARK", ROOT / "assets" / "comphy-lab-mark.png")
+).expanduser()
 QR_COLOUR = "#67236C"
 BACKGROUND = "#FFFFFF"
 SVG_SIZE = 600
@@ -204,6 +205,7 @@ def _svg_for(asset: QRAsset) -> str:
     else:
         canvas_height, label_markup = float(size), ""
     svg_height = SVG_SIZE * canvas_height / size
+    label_line = f"  {label_markup}\n" if label_markup else "\n"
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<svg xmlns="http://www.w3.org/2000/svg" '
@@ -213,7 +215,7 @@ def _svg_for(asset: QRAsset) -> str:
         f'  <rect width="{size}" height="{canvas_height:.5f}" fill="{BACKGROUND}"/>\n'
         f'  <path d="{module_path}" fill="{QR_COLOUR}" shape-rendering="crispEdges"/>\n'
         f'  {_logo_markup(asset.logo, size)}\n'
-        f'  {label_markup}\n'
+        f"{label_line}"
         '</svg>\n'
     )
 
@@ -232,6 +234,7 @@ def _render(svg: Path) -> None:
 
 
 def build(asset: QRAsset) -> None:
+    OUTDIR.mkdir(parents=True, exist_ok=True)
     svg = OUTDIR / f"{asset.stem}.svg"
     svg.write_text(_svg_for(asset), encoding="utf-8")
     _render(svg)

@@ -1,0 +1,4 @@
+-r requirements.txt
+resvg_py==0.2.6
+pypng==0.20220715.0
+zxing-cpp==3.0.0

@@ -1,0 +1,103 @@
+from __future__ import annotations
+
+from html.parser import HTMLParser
+from pathlib import Path
+import re
+import unittest
+import xml.etree.ElementTree as ET
+
+from scripts.inventory import is_first_party_url, load_valid_inventory
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+INVENTORY_PATH = REPO_ROOT / "inventory/codes.json"
+SITE_ROOT = REPO_ROOT / "site"
+QR_ROOT = REPO_ROOT / "current/account"
+SVG_NAMESPACE = "http://www.w3.org/2000/svg"
+
+
+class ResourceCollector(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.resources: list[tuple[str, dict[str, str]]] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.resources.append((tag, {key: value or "" for key, value in attrs}))
+
+
+@unittest.skipUnless(INVENTORY_PATH.exists(), "account inventory is being assembled")
+class OutputSafetyTests(unittest.TestCase):
+    def test_account_snapshot_has_14_owned_dynamic_routes(self) -> None:
+        inventory = load_valid_inventory(INVENTORY_PATH)
+        active_dynamic = [
+            code
+            for code in inventory["codes"]
+            if code["visibility"] == "public"
+            and code["source_kind"] == "dynamic"
+            and code["source_status"] == "active"
+        ]
+        self.assertEqual(len(active_dynamic), 14)
+        self.assertTrue(
+            all(
+                is_first_party_url(
+                    code["qr_payload"], inventory["first_party_origin"]
+                )
+                for code in active_dynamic
+            )
+        )
+
+    @unittest.skipUnless(SITE_ROOT.exists(), "site output has not been generated")
+    def test_generated_html_has_no_active_content_or_third_party_assets(self) -> None:
+        pages = sorted(SITE_ROOT.rglob("*.html"))
+        self.assertTrue(pages)
+        for page in pages:
+            with self.subTest(page=page.relative_to(REPO_ROOT)):
+                document = page.read_text(encoding="utf-8")
+                lowered = document.casefold()
+                self.assertNotIn("<script", lowered)
+                self.assertNotIn("<style", lowered)
+                self.assertNotIn("javascript:", lowered)
+                self.assertNotIn("data:text/html", lowered)
+                self.assertNotIn("<iframe", lowered)
+                self.assertIsNone(re.search(r"\son[a-z]+\s*=", lowered))
+                self.assertLess(
+                    document.index("Content-Security-Policy"),
+                    document.index('rel="stylesheet"'),
+                )
+
+                parser = ResourceCollector()
+                parser.feed(document)
+                for tag, attributes in parser.resources:
+                    self.assertNotIn(tag, {"script", "iframe", "object", "embed"})
+                    if tag == "img":
+                        self.assertNotIn("://", attributes.get("src", ""))
+                    if tag == "link" and attributes.get("rel") == "stylesheet":
+                        self.assertNotIn("://", attributes.get("href", ""))
+
+    @unittest.skipUnless(QR_ROOT.exists(), "QR output has not been generated")
+    def test_generated_svgs_are_plain_local_purple_on_white_artwork(self) -> None:
+        svgs = sorted(QR_ROOT.glob("*.svg"))
+        self.assertTrue(svgs)
+        for svg in svgs:
+            with self.subTest(svg=svg.name):
+                source = svg.read_text(encoding="utf-8")
+                self.assertNotIn("<!DOCTYPE", source)
+                root = ET.fromstring(source)
+                self.assertEqual(root.tag, f"{{{SVG_NAMESPACE}}}svg")
+                tags = {element.tag.rsplit("}", 1)[-1] for element in root.iter()}
+                self.assertLessEqual(tags, {"svg", "title", "rect", "path"})
+                fills = {
+                    element.attrib["fill"]
+                    for element in root.iter()
+                    if "fill" in element.attrib
+                }
+                self.assertEqual(fills, {"#67236C", "#FFFFFF"})
+                for element in root.iter():
+                    for attribute in element.attrib:
+                        local_name = attribute.rsplit("}", 1)[-1].casefold()
+                        self.assertNotIn(local_name, {"href", "src", "style"})
+                        self.assertFalse(local_name.startswith("on"))
+
+
+if __name__ == "__main__":
+    unittest.main()
