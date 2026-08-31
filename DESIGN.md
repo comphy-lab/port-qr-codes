@@ -15,6 +15,24 @@
 | --- | --- | --- |
 | `https://qrco.de/beQCcR` | `https://comphy-lab.org/contact-card/` | Replaced; the destination offers the contact card and vCard download. |
 
+## Migration states
+
+- `replacement-ready`: a public active dynamic code has a reviewed replacement
+  payload and generated artwork. First-party pages still need a deployment
+  receipt before physical cutover.
+- `direct-static`: the original code already has a clear public destination;
+  the replacement encodes that destination directly.
+- `source-preserved`: a paused code or obsolete event asset is retained as
+  evidence but is not promoted as a live destination.
+- `private-redacted`: the account entry is counted, but its destination and
+  artwork remain outside this public repository.
+
+Every active dynamic replacement uses `https://qr.comphy-lab.org/<slug>/` as
+its proposed stable payload. These static, script-free pages preserve the
+ability to update a destination without depending on a paid QR provider; all
+outbound links must be explicit HTTPS URLs. Existing static codes continue to
+encode their canonical destinations directly.
+
 ## Historical assets
 
 `legacy/` retains the existing SVG collection in its original folder layout.
