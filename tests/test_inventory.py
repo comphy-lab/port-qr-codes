@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import copy
-import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -48,6 +46,11 @@ class InventoryTests(unittest.TestCase):
             (
                 "destination",
                 "https://assets.example.org/file.pdf?Expires=9&Signature=secret",
+                "signed URL query keys",
+            ),
+            (
+                "destination",
+                "https://files.example.org/public.pdf?rlkey=capability",
                 "signed URL query keys",
             ),
         )
@@ -182,11 +185,10 @@ class InventoryTests(unittest.TestCase):
                 load_inventory(path)
 
     def test_fixture_copy_is_independent(self) -> None:
-        original = valid_inventory()
-        changed = copy.deepcopy(original)
-        changed["codes"][0]["name"] = "Changed"
-        self.assertNotEqual(original["codes"][0]["name"], changed["codes"][0]["name"])
-        json.dumps(original)
+        first = valid_inventory()
+        second = valid_inventory()
+        second["codes"][0]["name"] = "Changed"
+        self.assertNotEqual(first["codes"][0]["name"], second["codes"][0]["name"])
 
 
 if __name__ == "__main__":

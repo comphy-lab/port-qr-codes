@@ -546,8 +546,8 @@
       "content_type": "website",
       "visibility": "public",
       "source_short_url": null,
-      "destination": "https://www.dropbox.com/scl/fi/97mclhhjlbhzu0a40yn5t/Poster_02.pdf?rlkey=bpgyiphgccb5uj3o1j0q3m5pm&dl=0",
-      "qr_payload": "https://www.dropbox.com/scl/fi/97mclhhjlbhzu0a40yn5t/Poster_02.pdf?rlkey=bpgyiphgccb5uj3o1j0q3m5pm&dl=0",
+      "destination": "https://doi.org/10.1103/PhysRevLett.136.084001",
+      "qr_payload": "https://doi.org/10.1103/PhysRevLett.136.084001",
       "migration_status": "direct-static"
     },
     {

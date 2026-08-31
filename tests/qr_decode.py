@@ -24,7 +24,11 @@ def decode_qr_png(content: bytes) -> list[zxingcpp.Barcode]:
     for row in rows:
         channels = bytes(row)
         for red, green, blue, alpha in zip(
-            channels[0::4], channels[1::4], channels[2::4], channels[3::4]
+            channels[0::4],
+            channels[1::4],
+            channels[2::4],
+            channels[3::4],
+            strict=True,
         ):
             red = (red * alpha + 255 * (255 - alpha) + 127) // 255
             green = (green * alpha + 255 * (255 - alpha) + 127) // 255

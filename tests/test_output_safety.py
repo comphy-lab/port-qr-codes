@@ -4,7 +4,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 import re
 import unittest
-import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET
 
 from scripts.inventory import is_first_party_url, load_valid_inventory
 
@@ -46,8 +46,8 @@ class OutputSafetyTests(unittest.TestCase):
             )
         )
 
-    @unittest.skipUnless(SITE_ROOT.exists(), "site output has not been generated")
     def test_generated_html_has_no_active_content_or_third_party_assets(self) -> None:
+        self.assertTrue(SITE_ROOT.is_dir(), "generated site/ directory is missing")
         pages = sorted(SITE_ROOT.rglob("*.html"))
         self.assertTrue(pages)
         for page in pages:
@@ -70,9 +70,13 @@ class OutputSafetyTests(unittest.TestCase):
                 for tag, attributes in parser.resources:
                     self.assertNotIn(tag, {"script", "iframe", "object", "embed"})
                     if tag == "img":
-                        self.assertNotIn("://", attributes.get("src", ""))
+                        src = attributes.get("src", "")
+                        self.assertNotIn("://", src)
+                        self.assertFalse(src.startswith("//"))
                     if tag == "link" and attributes.get("rel") == "stylesheet":
-                        self.assertNotIn("://", attributes.get("href", ""))
+                        href = attributes.get("href", "")
+                        self.assertNotIn("://", href)
+                        self.assertFalse(href.startswith("//"))
 
     @unittest.skipUnless(QR_ROOT.exists(), "QR output has not been generated")
     def test_generated_svgs_are_plain_local_purple_on_white_artwork(self) -> None:
