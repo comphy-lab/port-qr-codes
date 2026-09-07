@@ -60,6 +60,10 @@ class OutputSafetyTests(unittest.TestCase):
                 self.assertNotIn("data:text/html", lowered)
                 self.assertNotIn("<iframe", lowered)
                 self.assertIsNone(re.search(r"\son[a-z]+\s*=", lowered))
+                # No inline style attribute survives style-src 'self' anyway;
+                # assert it so the generator can never start emitting one.
+                self.assertIsNone(re.search(r"\sstyle\s*=", lowered))
+                self.assertIn("font-src &#x27;self&#x27;", document)
                 self.assertLess(
                     document.index("Content-Security-Policy"),
                     document.index('rel="stylesheet"'),
@@ -77,6 +81,21 @@ class OutputSafetyTests(unittest.TestCase):
                         href = attributes.get("href", "")
                         self.assertNotIn("://", href)
                         self.assertFalse(href.startswith("//"))
+                    if tag == "ul":
+                        self.assertEqual(attributes.get("role"), "list")
+
+    def test_self_hosted_fonts_are_published_byte_identically(self) -> None:
+        source = REPO_ROOT / "assets/fonts"
+        published = SITE_ROOT / "assets/fonts"
+        self.assertTrue(source.is_dir(), "tracked font inputs are missing")
+        self.assertTrue(published.is_dir(), "generated font outputs are missing")
+        woff2 = sorted(path.name for path in source.glob("*.woff2"))
+        self.assertEqual(len(woff2), 10)
+        for name in (*woff2, "OFL.txt"):
+            with self.subTest(font=name):
+                self.assertEqual(
+                    (published / name).read_bytes(), (source / name).read_bytes()
+                )
 
     @unittest.skipUnless(QR_ROOT.exists(), "QR output has not been generated")
     def test_generated_svgs_are_plain_local_purple_on_white_artwork(self) -> None:

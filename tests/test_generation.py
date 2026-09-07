@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from pathlib import Path, PurePosixPath
+import re
 import tempfile
 import unittest
 from unittest import mock
@@ -9,6 +10,9 @@ from unittest import mock
 import zxingcpp
 
 from scripts.generate import (
+    FONT_DIR,
+    FONT_FILES,
+    FONT_LICENCE,
     GenerationError,
     build_outputs,
     compare_tree,
@@ -51,6 +55,10 @@ class GenerationTests(unittest.TestCase):
                 PurePosixPath("assets/qr/social-hub.png"),
                 PurePosixPath("index.html"),
                 PurePosixPath("social-hub/index.html"),
+            }
+            | {
+                PurePosixPath(f"assets/fonts/{name}")
+                for name in (*FONT_FILES, FONT_LICENCE)
             },
         )
 
@@ -82,18 +90,30 @@ class GenerationTests(unittest.TestCase):
         self.assertIn('href="social-hub/"', index)
         self.assertIn('href="assets/qr/social-hub.svg"', index)
         self.assertIn('href="assets/qr/social-hub.png"', index)
+        self.assertIn("font-src &#x27;self&#x27;", page)
         css = outputs.site[PurePosixPath("assets/style.css")].decode("utf-8")
         self.assertIn(
-            'font-family: "Iowan Old Style", Baskerville, Georgia, serif', css
+            "--t-serif: 'Fraunces', 'Source Serif 4', 'Iowan Old Style', Georgia, serif",
+            css,
         )
         self.assertIn(
-            'font-family: "Avenir Next", "Trebuchet MS", sans-serif', css
+            "--t-display: 'Cormorant Garamond', 'Fraunces', Georgia, serif", css
         )
-        self.assertIn("@keyframes settle-in", css)
-        self.assertIn(
-            "transition: border-color 300ms ease, transform 300ms ease", css
-        )
+        self.assertIn("'IBM Plex Sans', -apple-system", css)
+        self.assertIn("'IBM Plex Mono', ui-monospace", css)
+        self.assertNotIn("Avenir Next", css)
+        # The entrance animation is gone: it flashed a half-faded frame on the
+        # routes that redirect, and bought nothing below the fold.
+        self.assertNotIn("settle-in", css)
+        self.assertNotIn("@keyframes", css)
+        self.assertIn("@media (hover: hover) and (pointer: fine)", css)
+        self.assertIn("transition:\n      background var(--dur-fast) var(--ease)", css)
         self.assertIn("@media (prefers-reduced-motion: reduce)", css)
+        self.assertIn("color-scheme: light dark", css)
+        self.assertIn("@media (prefers-color-scheme: dark)", css)
+        self.assertIn("@media (forced-colors: active)", css)
+        # The QR quiet zone must stay light in both themes.
+        self.assertIn("background: #fff;", css)
 
     def test_base_path_is_removed_from_site_routes_without_allowing_traversal(self) -> None:
         inventory = valid_inventory()
@@ -139,7 +159,9 @@ class GenerationTests(unittest.TestCase):
         index = outputs.site[PurePosixPath("index.html")].decode("utf-8")
         self.assertIn(
             'href="https://example.org/paper.pdf" target="_blank" '
-            'rel="noopener noreferrer">Open target</a>',
+            'rel="noopener noreferrer" '
+            'aria-label="Open Public paper target (opens in a new tab)">'
+            "Open target</a>",
             index,
         )
         self.assertIn('download="public-paper.svg"', index)
@@ -215,6 +237,135 @@ class GenerationTests(unittest.TestCase):
                 with self.assertRaisesRegex(OSError, "injected fsync failure"):
                     write_tree({PurePosixPath("expected.txt"): b"expected\n"}, root)
             self.assertEqual(list(root.iterdir()), [])
+
+    def test_every_generated_list_restores_the_list_role(self) -> None:
+        # Safari drops the implicit list role when list-style computes to none,
+        # which is the dominant browser for a QR audience.
+        outputs = build_outputs(require_valid_inventory(valid_inventory()))
+        for path, content in outputs.site.items():
+            if path.suffix != ".html":
+                continue
+            document = content.decode("utf-8")
+            with self.subTest(page=str(path)):
+                opens = re.findall(r"<ul\b[^>]*>", document)
+                self.assertTrue(opens or path.name != "index.html")
+                for tag in opens:
+                    self.assertIn('role="list"', tag)
+
+    def test_every_index_card_link_is_labelled_with_its_code_name(self) -> None:
+        inventory = valid_inventory()
+        inventory["codes"][1] = {
+            "id": "public-paper",
+            "slug": "public-paper",
+            "name": "Public paper",
+            "folder": "Papers",
+            "source_kind": "static",
+            "source_status": "static",
+            "content_type": "pdf",
+            "visibility": "public",
+            "source_short_url": None,
+            "destination": "https://example.org/paper.pdf",
+            "qr_payload": "https://example.org/paper.pdf",
+            "migration_status": "direct-static",
+        }
+        index = build_outputs(inventory).site[PurePosixPath("index.html")].decode("utf-8")
+        anchors = re.findall(r"<a\b[^>]*>", index)
+        card_anchors = [tag for tag in anchors if 'class="pill' in tag]
+        self.assertEqual(len(card_anchors), 6)
+        for tag in card_anchors:
+            with self.subTest(anchor=tag):
+                label = re.search(r'aria-label="([^"]*)"', tag)
+                self.assertIsNotNone(label)
+                self.assertTrue(
+                    "CoMPhy &lt;social&gt; &amp; links" in label.group(1)
+                    or "Public paper" in label.group(1)
+                )
+        self.assertIn(
+            'aria-label="Download SVG QR code for Public paper"', index
+        )
+        self.assertIn(
+            'aria-label="Open CoMPhy &lt;social&gt; &amp; links link page"', index
+        )
+        self.assertIn('id="link-pages"', index)
+        self.assertIn('id="direct-codes"', index)
+
+    def test_single_destination_route_is_a_minimal_noindex_stub(self) -> None:
+        inventory = deepcopy(valid_inventory())
+        code = inventory["codes"][0]
+        code["content_type"] = "vcard"
+        code["destination"] = "https://comphy-lab.org/contact-card/"
+        code["links"] = []
+        page = (
+            build_outputs(inventory)
+            .site[PurePosixPath("social-hub/index.html")]
+            .decode("utf-8")
+        )
+        self.assertIn('<meta name="robots" content="noindex">', page)
+        # Deliberate semantic change: the canonical now points at the
+        # destination instead of contradicting the meta refresh (audit m4).
+        self.assertIn(
+            '<link rel="canonical" href="https://comphy-lab.org/contact-card/">', page
+        )
+        self.assertIn(
+            '<meta http-equiv="refresh" '
+            'content="0; url=https://comphy-lab.org/contact-card/">',
+            page,
+        )
+        self.assertNotIn("download=", page)
+        self.assertNotIn("<figure", page)
+        self.assertNotIn("<ul", page)
+        self.assertIn("Continue to the contact card", page)
+        self.assertIn("Taking you to comphy-lab.org.", page)
+
+    def test_multi_link_route_keeps_its_collection_and_never_redirects(self) -> None:
+        outputs = build_outputs(require_valid_inventory(valid_inventory()))
+        page = outputs.site[PurePosixPath("social-hub/index.html")].decode("utf-8")
+        self.assertNotIn('http-equiv="refresh"', page)
+        self.assertNotIn('name="robots"', page)
+        self.assertIn('<ul class="actions" role="list">', page)
+        self.assertIn('<ul class="downloads" role="list">', page)
+        self.assertIn('<figure class="qr-panel">', page)
+        self.assertIn('href="../"', page)
+        self.assertNotIn('href="../index.html"', page)
+
+    def test_self_hosted_faces_are_emitted_byte_identically(self) -> None:
+        outputs = build_outputs(require_valid_inventory(valid_inventory()))
+        self.assertEqual(len(FONT_FILES), 10)
+        for name in FONT_FILES:
+            with self.subTest(font=name):
+                path = PurePosixPath(f"assets/fonts/{name}")
+                self.assertIn(path, outputs.site)
+                self.assertEqual(
+                    outputs.site[path], (FONT_DIR / name).read_bytes()
+                )
+                self.assertTrue(name.endswith(".woff2"))
+        css = outputs.site[PurePosixPath("assets/style.css")].decode("utf-8")
+        for name in FONT_FILES:
+            self.assertIn(f"url(fonts/{name}) format('woff2')", css)
+        self.assertEqual(css.count("@font-face"), len(FONT_FILES))
+        self.assertEqual(css.count("font-display: swap"), len(FONT_FILES))
+        self.assertIn(
+            PurePosixPath(f"assets/fonts/{FONT_LICENCE}"), outputs.site
+        )
+
+    def test_generated_pages_carry_no_inline_style_or_script(self) -> None:
+        outputs = build_outputs(require_valid_inventory(valid_inventory()))
+        for path, content in outputs.site.items():
+            if path.suffix != ".html":
+                continue
+            document = content.decode("utf-8").casefold()
+            with self.subTest(page=str(path)):
+                self.assertNotIn("<script", document)
+                self.assertNotIn("<style", document)
+                self.assertIsNone(re.search(r"\sstyle\s*=", document))
+
+    def test_generation_fails_loudly_when_a_font_input_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            empty = Path(directory)
+            with self.assertRaisesRegex(GenerationError, "missing self-hosted font"):
+                build_outputs(
+                    require_valid_inventory(valid_inventory()), fonts_dir=empty
+                )
 
 
 if __name__ == "__main__":

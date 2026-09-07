@@ -34,8 +34,68 @@ CONTENT_TYPE_LABELS = {
     "pdf": "PDF",
     "vcard": "Contact card",
 }
-CSP = "default-src 'none'; img-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'"
+CONTINUE_LABELS = {
+    "website": "Continue to the website",
+    "pdf": "Continue to the PDF",
+    "vcard": "Continue to the contact card",
+    "links": "Continue to the destination",
+}
+CSP = (
+    "default-src 'none'; img-src 'self'; style-src 'self'; font-src 'self'; "
+    "base-uri 'none'; form-action 'none'"
+)
 SAFE_ROUTE_SEGMENT_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
+
+LAB_URL = "https://comphy-lab.org/"
+LEDGER_URL = "https://github.com/comphy-lab/port-qr-codes"
+LEDGER_LABEL = "github.com/comphy-lab/port-qr-codes"
+INDEX_DESCRIPTION = (
+    "First-party QR destinations maintained by the Computational Multiphase Physics Lab."
+)
+INDEX_LEDE = (
+    "Every public QR code the lab publishes, with its artwork, its exact payload "
+    "and where it points."
+)
+LINK_PAGES_INTRO = (
+    "Codes that resolve to a CoMPhy Lab route, so the destination can be re-pointed "
+    "without reprinting the artwork."
+)
+DIRECT_CODES_INTRO = (
+    "Codes that encode their destination directly; the printed payload cannot be "
+    "changed afterwards."
+)
+
+# ---------------------------------------------------------------------------
+# Self-hosted type. The files are tracked inputs under assets/fonts/ and are
+# emitted byte-identically under site/assets/fonts/, so the pages need no
+# third-party request and the CSP can stay at font-src 'self'.
+# ---------------------------------------------------------------------------
+FONT_DIR = REPO_ROOT / "assets/fonts"
+FONT_LICENCE = "OFL.txt"
+FONT_FACES: tuple[tuple[str, str, int, str], ...] = (
+    ("Fraunces", "normal", 600, "fraunces-normal-600"),
+    ("Cormorant Garamond", "italic", 500, "cormorant-garamond-italic-500"),
+    ("IBM Plex Sans", "normal", 400, "ibm-plex-sans-normal-400"),
+    ("IBM Plex Sans", "normal", 600, "ibm-plex-sans-normal-600"),
+    ("IBM Plex Mono", "normal", 400, "ibm-plex-mono-normal-400"),
+)
+FONT_SUBSETS: tuple[tuple[str, str], ...] = (
+    (
+        "latin-ext",
+        "U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, "
+        "U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, "
+        "U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF",
+    ),
+    (
+        "latin",
+        "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, "
+        "U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, "
+        "U+2212, U+2215, U+FEFF, U+FFFD",
+    ),
+)
+FONT_FILES: tuple[str, ...] = tuple(
+    f"{stem}-{subset}.woff2" for *_, stem in FONT_FACES for subset, _ in FONT_SUBSETS
+)
 
 
 class GenerationError(RuntimeError):
@@ -120,12 +180,14 @@ def _page_head(
     canonical_url: str,
     css_href: str,
     redirect_url: str | None = None,
+    noindex: bool = False,
 ) -> str:
     redirect = (
         f'  <meta http-equiv="refresh" content="0; url={_escape(redirect_url)}">\n'
         if redirect_url is not None
         else ""
     )
+    robots = '  <meta name="robots" content="noindex">\n' if noindex else ""
     return (
         "<!doctype html>\n"
         '<html lang="en">\n'
@@ -135,11 +197,80 @@ def _page_head(
         f'  <meta http-equiv="Content-Security-Policy" content="{_escape(CSP)}">\n'
         '  <meta name="referrer" content="no-referrer">\n'
         + redirect
+        + robots
         + f"  <title>{_escape(title)}</title>\n"
         f'  <meta name="description" content="{_escape(description)}">\n'
         f'  <link rel="canonical" href="{_escape(canonical_url)}">\n'
         f'  <link rel="stylesheet" href="{_escape(css_href)}">\n'
         "</head>\n"
+    )
+
+
+def _external(href: str, label: str, *, css_class: str, aria_label: str) -> str:
+    """Render an outbound link with the fixed new-tab hardening attributes."""
+
+    return (
+        f'<a class="{css_class}" href="{_escape(href)}" '
+        f'target="_blank" rel="noopener noreferrer" '
+        f'aria-label="{_escape(aria_label)}">{_escape(label)}</a>'
+    )
+
+
+def _site_header(*, home_href: str, jump_links: bool) -> str:
+    """Sticky header: brand lockup home, the lab site, and index jump pills."""
+
+    jump = (
+        '      <nav class="jump" aria-label="Catalogue sections">\n'
+        '        <a href="#link-pages">Link pages</a>\n'
+        '        <a href="#direct-codes">Direct codes</a>\n'
+        "      </nav>\n"
+        if jump_links
+        else ""
+    )
+    return (
+        '  <header class="site-header">\n'
+        '    <div class="header-inner">\n'
+        f'      <a class="brand" href="{_escape(home_href)}" '
+        'aria-label="CoMPhy Lab QR catalogue">\n'
+        '        <span class="brand-mark" aria-hidden="true">Q</span>\n'
+        '        <span class="brand-name">CoMPhy Lab QR</span>\n'
+        "      </a>\n"
+        + jump
+        + "      "
+        + _external(
+            LAB_URL,
+            "comphy-lab.org",
+            css_class="header-link",
+            aria_label="comphy-lab.org (opens in a new tab)",
+        )
+        + "\n"
+        "    </div>\n"
+        "  </header>\n"
+    )
+
+
+def _site_footer() -> str:
+    return (
+        '  <footer class="site-footer">\n'
+        '    <div class="footer-inner">\n'
+        "      "
+        + _external(
+            LAB_URL,
+            "CoMPhy Lab",
+            css_class="footer-mark",
+            aria_label="CoMPhy Lab website (opens in a new tab)",
+        )
+        + "\n"
+        '      <p class="footer-meta">QR artwork and migration ledger: '
+        + _external(
+            LEDGER_URL,
+            LEDGER_LABEL,
+            css_class="footer-link",
+            aria_label=f"{LEDGER_LABEL} (opens in a new tab)",
+        )
+        + "</p>\n"
+        "    </div>\n"
+        "  </footer>\n"
     )
 
 
@@ -200,291 +331,967 @@ def _action_links(code: dict[str, Any]) -> list[tuple[str, str]]:
     return actions
 
 
+def _downloads_markup(code: dict[str, Any], prefix: str) -> str:
+    slug = code["slug"]
+    name = code["name"]
+    rows = []
+    for kind in ("svg", "png"):
+        rows.append(
+            '          <li><a class="pill pill--secondary" '
+            f'href="{prefix}assets/qr/{_escape(slug)}.{kind}" '
+            f'download="{_escape(slug)}.{kind}" '
+            f'aria-label="Download {kind.upper()} QR code for {_escape(name)}">'
+            f"Download {kind.upper()}</a></li>"
+        )
+    return "\n".join(rows)
+
+
+def _redirect_page(code: dict[str, Any], *, destination: str, depth: int) -> str:
+    """Minimal stub for a route that immediately opens one documented target."""
+
+    prefix = "../" * depth
+    host = urlsplit(destination).hostname or destination
+    label = CONTINUE_LABELS[code["content_type"]]
+    return (
+        _page_head(
+            title=f"{code['name']} | CoMPhy Lab QR",
+            description=f"Redirecting to {host}.",
+            canonical_url=destination,
+            css_href=f"{prefix}assets/style.css",
+            redirect_url=destination,
+            noindex=True,
+        )
+        + "<body>\n"
+        + _site_header(home_href=prefix or "./", jump_links=False)
+        + '  <main class="shell stub">\n'
+        + f'    <p class="eyebrow">{_escape(CONTENT_TYPE_LABELS[code["content_type"]])}'
+        + " · First-party route</p>\n"
+        + f"    <h1>{_escape(code['name'])}</h1>\n"
+        + f'    <p class="lede">Taking you to {_escape(host)}. If nothing happens, '
+        + "use the link below.</p>\n"
+        + "    <p>"
+        + _external(
+            destination,
+            label,
+            css_class="pill",
+            aria_label=f"{label} (opens in a new tab)",
+        )
+        + "</p>\n"
+        + "  </main>\n"
+        + "</body>\n"
+        + "</html>\n"
+    )
+
+
 def _code_page(code: dict[str, Any], *, origin: str, depth: int) -> str:
+    """Full landing page for a first-party route that collects several links."""
+
     payload = code["qr_payload"]
     summary = code.get("summary") or "A durable QR destination managed by CoMPhy Lab."
     prefix = "../" * depth
     actions = _action_links(code)
     destination_markup = "\n".join(
-        f'          <li><a class="action" href="{_escape(url)}" '
-        f'target="_blank" rel="noopener noreferrer">{_escape(label)}</a></li>'
+        "          <li>"
+        + _external(
+            url,
+            label,
+            css_class="pill pill--external",
+            aria_label=f"{label} (opens in a new tab)",
+        )
+        + "</li>"
         for label, url in actions
     )
     if not destination_markup:
-        destination_markup = '          <li class="quiet">No public destination is attached yet.</li>'
-    downloads = (
-        f'          <li><a class="action secondary" href="{prefix}assets/qr/{_escape(code["slug"])}.svg" '
-        f'download="{_escape(code["slug"])}.svg">Download SVG</a></li>\n'
-        f'          <li><a class="action secondary" href="{prefix}assets/qr/{_escape(code["slug"])}.png" '
-        f'download="{_escape(code["slug"])}.png">Download PNG</a></li>'
-    )
+        destination_markup = (
+            '          <li class="quiet">No public destination is attached yet.</li>'
+        )
     return (
         _page_head(
             title=f"{code['name']} | CoMPhy Lab QR",
             description=summary,
             canonical_url=payload,
             css_href=f"{prefix}assets/style.css",
-            redirect_url=_redirect_destination(code),
         )
         + "<body>\n"
-        + '  <main class="shell detail">\n'
-        + f'    <a class="brand" href="{prefix}index.html" aria-label="CoMPhy Lab QR index">CoMPhy Lab <span>QR</span></a>\n'
-        + '    <article class="detail-card">\n'
-        + '      <div class="copy">\n'
-        + f'        <p class="eyebrow">{_escape(CONTENT_TYPE_LABELS[code["content_type"]])} · First-party route</p>\n'
+        + _site_header(home_href=prefix or "./", jump_links=False)
+        + '  <main class="shell">\n'
+        + '    <article class="detail">\n'
+        + '      <div class="detail-copy">\n'
+        + f'        <p class="eyebrow">{_escape(CONTENT_TYPE_LABELS[code["content_type"]])}'
+        + " · First-party route</p>\n"
         + f"        <h1>{_escape(code['name'])}</h1>\n"
-        + f"        <p class=\"summary\">{_escape(summary)}</p>\n"
-        + '        <ul class="actions">\n'
+        + f'        <p class="lede">{_escape(summary)}</p>\n'
+        + '        <ul class="actions" role="list">\n'
         + destination_markup
-        + "\n"
-        + downloads
+        + "\n        </ul>\n"
+        + '        <ul class="downloads" role="list">\n'
+        + _downloads_markup(code, prefix)
         + "\n        </ul>\n"
         + "      </div>\n"
         + '      <figure class="qr-panel">\n'
-        + f'        <img src="{prefix}assets/qr/{_escape(code["slug"])}.svg" width="600" height="600" alt="QR code for {_escape(code["name"])}">\n'
+        + '        <div class="qr-frame">\n'
+        + f'          <img src="{prefix}assets/qr/{_escape(code["slug"])}.svg" '
+        + 'width="600" height="600" '
+        + f'alt="QR code for {_escape(code["name"])}">\n'
+        + "        </div>\n"
         + "        <figcaption>First-party URL<br><code>"
         + _escape(payload)
         + "</code></figcaption>\n"
         + "      </figure>\n"
         + "    </article>\n"
         + "  </main>\n"
+        + _site_footer()
         + "</body>\n"
         + "</html>\n"
+    )
+
+
+def _index_card(code: dict[str, Any], *, origin: str) -> str:
+    payload = code["qr_payload"]
+    name = code["name"]
+    slug = _escape(code["slug"])
+    kind = _escape(CONTENT_TYPE_LABELS[code["content_type"]])
+    if is_first_party_url(payload, origin):
+        route_href = "/".join(_first_party_route(payload, origin)) + "/"
+        route = (
+            f'<a class="pill" href="{_escape(route_href)}" '
+            f'aria-label="Open {_escape(name)} link page">Open page</a>'
+        )
+        eyebrow = f"{kind} · First-party route"
+        summary = code.get("summary")
+        summary_markup = (
+            f'          <p class="card-summary">{_escape(summary)}</p>\n' if summary else ""
+        )
+    else:
+        route = _external(
+            payload,
+            "Open target",
+            css_class="pill pill--external",
+            aria_label=f"Open {name} target (opens in a new tab)",
+        )
+        eyebrow = f"{kind} · Direct target"
+        summary_markup = ""
+    downloads = "\n".join(
+        f'            <a class="pill pill--secondary" href="assets/qr/{slug}.{ext}" '
+        f'download="{slug}.{ext}" '
+        f'aria-label="Download {ext.upper()} QR code for {_escape(name)}">'
+        f"{ext.upper()}</a>"
+        for ext in ("svg", "png")
+    )
+    return (
+        '        <li class="card">\n'
+        f'          <p class="eyebrow">{eyebrow}</p>\n'
+        f"          <h3>{_escape(name)}</h3>\n"
+        + summary_markup
+        + '          <div class="card-foot">\n'
+        f"            {route}\n"
+        + downloads
+        + "\n          </div>\n"
+        "        </li>"
+    )
+
+
+def _index_section(
+    codes: list[dict[str, Any]],
+    *,
+    origin: str,
+    section_id: str,
+    heading: str,
+    intro: str,
+    empty: str,
+) -> str:
+    cards = [_index_card(code, origin=origin) for code in codes]
+    body = "\n".join(cards) if cards else f'        <li class="quiet">{empty}</li>'
+    return (
+        f'    <section class="group" id="{section_id}">\n'
+        '      <div class="group-head">\n'
+        f"        <h2>{heading}</h2>\n"
+        f'        <p class="group-intro">{intro}</p>\n'
+        "      </div>\n"
+        f'      <ul class="card-grid" role="list" aria-label="{heading}">\n'
+        + body
+        + "\n      </ul>\n"
+        "    </section>\n"
     )
 
 
 def _index_page(codes: list[dict[str, Any]], *, origin: str) -> str:
-    cards: list[str] = []
-    for code in codes:
-        payload = code["qr_payload"]
-        if is_first_party_url(payload, origin):
-            route_href = "/".join(_first_party_route(payload, origin)) + "/"
-            route_label = "Open page"
-            route_target = ""
-        else:
-            route_href = payload
-            route_label = "Open target"
-            route_target = ' target="_blank" rel="noopener noreferrer"'
-        slug = _escape(code["slug"])
-        cards.append(
-            '      <li class="card">\n'
-            f'        <span class="eyebrow">{_escape(CONTENT_TYPE_LABELS[code["content_type"]])}</span>\n'
-            f"        <strong>{_escape(code['name'])}</strong>\n"
-            '        <span class="card-links">\n'
-            f'          <a href="{_escape(route_href)}"{route_target}>{route_label}</a>\n'
-            f'          <a href="assets/qr/{slug}.svg" download="{slug}.svg">SVG</a>\n'
-            f'          <a href="assets/qr/{slug}.png" download="{slug}.png">PNG</a>\n'
-            "        </span>\n"
-            "      </li>"
-        )
-    description = "First-party QR destinations maintained by the Computational Multiphase Physics Lab."
+    first_party = [code for code in codes if is_first_party_url(code["qr_payload"], origin)]
+    direct = [code for code in codes if not is_first_party_url(code["qr_payload"], origin)]
     return (
         _page_head(
             title="CoMPhy Lab QR destinations",
-            description=description,
+            description=INDEX_DESCRIPTION,
             canonical_url=f"{origin}/",
             css_href="assets/style.css",
         )
         + "<body>\n"
+        + _site_header(home_href="./", jump_links=True)
         + '  <main class="shell">\n'
-        + '    <header class="hero">\n'
-        + '      <p class="brand">CoMPhy Lab <span>QR</span></p>\n'
-        + "      <h1>Useful links, without the rented QR plumbing.</h1>\n"
-        + f"      <p>{_escape(description)}</p>\n"
-        + "    </header>\n"
-        + '    <ul class="grid" aria-label="QR destinations">\n'
-        + ("\n".join(cards) if cards else '      <li class="quiet">No public link pages yet.</li>')
-        + "\n    </ul>\n"
+        + '    <section class="hero">\n'
+        + '      <p class="eyebrow">CoMPhy Lab · first-party QR destinations</p>\n'
+        + '      <h1 class="hero-title">Useful links, without the rented QR '
+        + "plumbing.</h1>\n"
+        + f'      <p class="lede">{_escape(INDEX_LEDE)}</p>\n'
+        + "    </section>\n"
+        + _index_section(
+            first_party,
+            origin=origin,
+            section_id="link-pages",
+            heading="Link pages",
+            intro=LINK_PAGES_INTRO,
+            empty="No public link pages yet.",
+        )
+        + _index_section(
+            direct,
+            origin=origin,
+            section_id="direct-codes",
+            heading="Direct codes",
+            intro=DIRECT_CODES_INTRO,
+            empty="No direct codes yet.",
+        )
         + "  </main>\n"
+        + _site_footer()
         + "</body>\n"
         + "</html>\n"
     )
 
 
-STYLE_CSS = """\
+def _font_face_css() -> str:
+    """Emit one @font-face per family and subset, pointing at site-local files."""
+
+    blocks: list[str] = []
+    for family, style, weight, stem in FONT_FACES:
+        for subset, unicode_range in FONT_SUBSETS:
+            blocks.append(
+                f"/* {subset} */\n"
+                "@font-face {\n"
+                f"  font-family: '{family}';\n"
+                f"  font-style: {style};\n"
+                f"  font-weight: {weight};\n"
+                "  font-display: swap;\n"
+                f"  src: url(fonts/{stem}-{subset}.woff2) format('woff2');\n"
+                f"  unicode-range: {unicode_range};\n"
+                "}\n"
+            )
+    return "\n".join(blocks)
+
+
+# ---------------------------------------------------------------------------
+# Presentation layer.
+#
+# Visual thesis: a warm paper-and-ink catalogue — scholarly, quiet, printed
+# rather than app-like — with one deep teal doing every interactive job and
+# purple reserved for the brand marks and the QR modules.
+#
+# Colour, type, spacing, radius, shadow and motion values are the CoMPhy
+# design-system tokens. Authored mobile-first (iPhone 15 Pro Max, 430px),
+# then >=721px and >=1100px; the detail two-column split is the single
+# exception at >=900px, where the QR panel first has room beside the copy.
+# ---------------------------------------------------------------------------
+BASE_CSS = """\
+/* =============================================================
+   CoMPhy Lab QR catalogue. Generated by scripts/generate.py.
+   Do not hand-edit: site/ is build output.
+   Self-hosted faces are SIL OFL; see assets/fonts/OFL.txt.
+   ============================================================= */
+
 :root {
-  color-scheme: light;
-  --ink: #201924;
-  --muted: #6f6473;
-  --purple: #67236c;
-  --purple-soft: #f4eaf5;
-  --paper: #fffdfb;
-  --line: #e6dfe7;
+  color-scheme: light dark;
+
+  /* ---------- Brand hues ---------- */
+  --c-brand-purple: #68236d;
+  /* Design-system hero stops, with stop 1 deepened from #ff6b6b so every
+     stop clears 3:1 for large text on the paper (2.42 was below). */
+  --hero-grad-1: #e2555b;
+  --hero-grad-2: #68236d;
+  --hero-grad-3: #4c6ef5;
+  --hero-grad-4: #2d1b69;
+
+  /* ---------- Interactive accent (the only one) ---------- */
+  --c-accent-teal: #254c4a;
+  --c-accent-teal-fg: #ffffff;
+  --c-accent-teal-hover: #1d3c3a;
+
+  /* ---------- Paper + ink ---------- */
+  --c-paper: #f3efe8;
+  --c-paper-tint: #ebe5da;
+  --c-surface-strong: #fffdf9;
+  --c-surface: var(--c-surface-strong);
+
+  --fg-strong: #0f0c08;
+  --fg-1: #1f1a15;
+  --fg-2: #625648;
+  --fg-3: #857867;
+
+  --c-border: rgba(15, 12, 8, 0.09);
+  --c-border-strong: rgba(15, 12, 8, 0.18);
+
+  --grid-line: rgba(15, 12, 8, 0.035);
+  --eyebrow-fg: #68236d;
+  --code-bg: color-mix(in srgb, var(--c-brand-purple) 7%, transparent);
+  --code-fg: var(--fg-strong);
+
+  /* ---------- Typography ---------- */
+  --t-display: 'Cormorant Garamond', 'Fraunces', Georgia, serif;
+  --t-serif: 'Fraunces', 'Source Serif 4', 'Iowan Old Style', Georgia, serif;
+  --t-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --t-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --t-hero: clamp(44px, 6.2vw, 88px);
+  --t-h1: clamp(28px, 3.4vw, 36px);
+  --t-h2: clamp(22px, 2.6vw, 28px);
+  --t-h3: 20px;
+  --t-body-lg: 18px;
+  --t-body: 16px;
+  --t-small: 14px;
+  --t-eyebrow: 12px;
+
+  --t-track-tight: -0.01em;
+  --t-track-wide: 0.08em;
+
+  /* ---------- Spacing, radius, shadow ---------- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+
+  --r-sm: 12px;
+  --r-md: 18px;
+  --r-lg: 28px;
+  --r-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(15, 12, 8, 0.04), 0 1px 3px rgba(15, 12, 8, 0.06);
+  --shadow-md: 0 4px 10px rgba(15, 12, 8, 0.06), 0 2px 4px rgba(15, 12, 8, 0.04);
+  --shadow-soft: 0 12px 40px rgba(15, 12, 8, 0.06), 0 4px 12px rgba(15, 12, 8, 0.04);
+
+  /* ---------- Layout + motion ---------- */
+  --maxw-page: 1200px;
+  --maxw-read: 68ch;
+  --shell-pad: 14px;
+  --tap: 44px;
+  --ease: cubic-bezier(0.2, 0.6, 0.2, 1);
+  --dur-fast: 160ms;
 }
 
-* { box-sizing: border-box; }
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-paper: #12100d;
+    --c-paper-tint: #1a1713;
+    --c-surface-strong: #1c1915;
+
+    --fg-strong: #f8f4ec;
+    --fg-1: #e6dfd0;
+    --fg-2: #9a8e7d;
+    --fg-3: #6e6455;
+
+    --c-border: rgba(248, 244, 236, 0.08);
+    --c-border-strong: rgba(248, 244, 236, 0.16);
+
+    --grid-line: rgba(248, 244, 236, 0.04);
+    --eyebrow-fg: #c09bc4;
+    /* Lift the two darkest hero stops on dark paper (1.85 and 1.33 otherwise). */
+    --hero-grad-2: #c09bc4;
+    --hero-grad-4: #9b8cf2;
+    --code-bg: color-mix(in srgb, var(--c-brand-purple) 22%, transparent);
+    --code-fg: #f1dcf4;
+
+    --c-accent-teal: #6ac2bd;
+    --c-accent-teal-fg: #0f1c1b;
+    --c-accent-teal-hover: #88d2ce;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 10px rgba(0, 0, 0, 0.45);
+    --shadow-soft: 0 12px 40px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* =============================================================
+   Base
+   ============================================================= */
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html {
+  min-width: 20rem;
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+  scroll-padding-top: 7rem;
+}
 
 body {
   margin: 0;
+  overflow-x: clip;
+  /* Column flow so the footer strip reaches the bottom of a short page. */
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
-  color: var(--ink);
-  background:
-    radial-gradient(circle at 90% 4%, #f1e2f2 0, transparent 32rem),
-    var(--paper);
-  font-family: "Avenir Next", "Trebuchet MS", sans-serif;
-  line-height: 1.55;
+  position: relative;
+  background: var(--c-paper);
+  color: var(--fg-1);
+  font-family: var(--t-sans);
+  font-size: var(--t-body);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
 }
 
-a { color: inherit; }
-
-.shell {
-  width: min(70rem, calc(100% - 2rem));
-  margin: 0 auto;
-  padding: clamp(2rem, 6vw, 5rem) 0;
+/* Soft grid overlay: the only decoration, and it never takes a click. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
-.brand {
-  display: inline-block;
-  margin: 0 0 3rem;
-  color: var(--ink);
-  font-size: .86rem;
-  font-weight: 800;
-  letter-spacing: .08em;
+a {
+  color: inherit;
   text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a:focus-visible {
+  outline: 3px solid var(--c-accent-teal);
+  outline-offset: 3px;
+}
+
+strong { color: inherit; }
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  color: var(--fg-strong);
+  font-family: var(--t-serif);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+}
+
+h1 { font-size: var(--t-h1); }
+h2 { font-size: var(--t-h2); }
+
+code {
+  padding: 0.08em 0.35em;
+  border-radius: 4px;
+  background: var(--code-bg);
+  color: var(--code-fg);
+  font-family: var(--t-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--eyebrow-fg);
+  font-family: var(--t-sans);
+  font-size: var(--t-eyebrow);
+  font-weight: 600;
+  letter-spacing: var(--t-track-wide);
   text-transform: uppercase;
 }
 
-.brand span { color: var(--purple); }
-
-.hero { max-width: 50rem; }
-
-.hero h1,
-.detail h1 {
-  max-width: 14ch;
+.lede {
   margin: 0;
-  font-size: clamp(2.5rem, 7vw, 5.6rem);
-  letter-spacing: -.055em;
-  line-height: .96;
-  font-family: "Iowan Old Style", Baskerville, Georgia, serif;
-  font-weight: 700;
+  max-width: var(--maxw-read);
+  color: var(--fg-2);
+  font-size: var(--t-body-lg);
+  line-height: 1.55;
 }
 
-.hero > p:last-child,
-.summary {
-  max-width: 43rem;
-  margin: 1.5rem 0 0;
-  color: var(--muted);
-  font-size: clamp(1.05rem, 2vw, 1.3rem);
+.quiet {
+  color: var(--fg-2);
+  list-style: none;
 }
 
-.grid,
-.actions {
+.shell {
+  position: relative;
+  z-index: 1;
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: var(--maxw-page);
+  margin: 0 auto;
+  padding: var(--s-6) var(--shell-pad) var(--s-8);
+}
+
+/* =============================================================
+   Header
+   ============================================================= */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 1px solid var(--c-border);
+  background: color-mix(in srgb, var(--c-paper) 86%, transparent);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.header-inner {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: 0 var(--s-3);
+  max-width: var(--maxw-page);
+  margin: 0 auto;
+  padding: var(--s-1) var(--shell-pad);
+}
+
+.brand {
+  grid-column: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: var(--tap);
+  color: var(--fg-strong);
+}
+
+.brand-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--r-pill);
+  background: var(--c-accent-teal);
+  color: var(--c-accent-teal-fg);
+  font-family: var(--t-display);
+  font-style: italic;
+  font-size: var(--t-h3);
+  line-height: 1;
+}
+
+.brand-name {
+  font-family: var(--t-serif);
+  font-weight: 600;
+  font-size: var(--t-body-lg);
+  letter-spacing: var(--t-track-tight);
+}
+
+.header-link {
+  grid-column: -2;
+  grid-row: 1;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--s-1);
+  color: var(--fg-2);
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+
+.jump {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: flex;
+  gap: var(--s-2);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: var(--s-2);
+  scrollbar-width: none;
+}
+
+.jump a {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--s-4);
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-pill);
+  background: var(--c-surface);
+  color: var(--fg-1);
+  font-size: var(--t-small);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* =============================================================
+   Index
+   ============================================================= */
+
+.hero {
+  display: grid;
+  gap: var(--s-3);
+}
+
+.hero-title {
+  margin: 0;
+  max-width: 18ch;
+  font-family: var(--t-display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: var(--t-hero);
+  line-height: 1.02;
+  letter-spacing: -0.015em;
+  background: linear-gradient(
+    90deg,
+    var(--hero-grad-1) 0%,
+    var(--hero-grad-2) 45%,
+    var(--hero-grad-3) 55%,
+    var(--hero-grad-4) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Clipped gradient type has no forced-colours meaning; fall back to ink. */
+@media (forced-colors: active) {
+  .hero-title {
+    background: none;
+    -webkit-text-fill-color: CanvasText;
+    color: CanvasText;
+  }
+}
+
+.group { margin-top: var(--s-7); }
+
+.group-head {
+  display: grid;
+  gap: var(--s-1);
+  margin-bottom: var(--s-4);
+}
+
+.group-intro {
+  margin: 0;
+  max-width: var(--maxw-read);
+  color: var(--fg-2);
+  font-size: var(--t-small);
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 14px;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
-  gap: 1rem;
-  margin: 4rem 0 0;
-}
-
-.hero > *,
-.detail-card .copy,
-.detail-card .qr-panel,
-.grid .card {
-  animation: settle-in 520ms cubic-bezier(.2, .72, .25, 1) both;
-}
-
-.hero > :nth-child(2),
-.detail-card .qr-panel { animation-delay: 70ms; }
-.hero > :nth-child(3) { animation-delay: 130ms; }
-.grid .card:nth-child(2n) { animation-delay: 45ms; }
-.grid .card:nth-child(3n) { animation-delay: 90ms; }
-
+/* Flex column rather than grid so a short card still pins its action row to
+   the bottom edge instead of leaving a void (audit M5). */
 .card {
-  display: grid;
-  min-height: 11rem;
-  padding: 1.4rem;
-  border: 1px solid var(--line);
-  border-radius: 1rem;
-  background: rgb(255 255 255 / 78%);
-  box-shadow: 0 .8rem 2rem rgb(62 31 66 / 5%);
-  transition: border-color 300ms ease, transform 300ms ease;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  padding: var(--s-4);
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-md);
+  background: var(--c-surface-strong);
+  box-shadow: var(--shadow-sm);
 }
 
-.card:hover,
-.card:focus-within {
-  border-color: var(--purple);
-  transform: translateY(-2px);
+.card h3 {
+  font-size: 18px;
+  line-height: 1.25;
+  letter-spacing: var(--t-track-tight);
+  overflow-wrap: anywhere;
 }
 
-.card strong { margin-top: .55rem; font-size: 1.25rem; line-height: 1.2; }
-.card-links { align-self: end; display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1.5rem; }
-.card-links a { color: var(--purple); font-size: .9rem; font-weight: 750; }
-
-.eyebrow {
+.card-summary {
   margin: 0;
-  color: var(--purple);
-  font-size: .75rem;
-  font-weight: 800;
-  letter-spacing: .1em;
-  text-transform: uppercase;
+  color: var(--fg-2);
+  font-size: var(--t-small);
+  line-height: 1.5;
 }
 
-.detail-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(16rem, 25rem);
-  gap: clamp(2rem, 7vw, 6rem);
+.card-foot {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  gap: var(--s-2);
+  margin-top: auto;
+  padding-top: var(--s-2);
+  border-top: 1px dashed var(--c-border);
 }
 
-.detail h1 { margin-top: .8rem; font-size: clamp(2.4rem, 6vw, 4.8rem); }
+/* =============================================================
+   Pills — the single interactive shape
+   ============================================================= */
 
-.actions { display: flex; flex-wrap: wrap; gap: .75rem; margin: 2rem 0 0; }
-
-.action {
-  display: inline-block;
-  padding: .8rem 1.1rem;
-  border-radius: 999px;
-  color: white;
-  background: var(--purple);
-  font-weight: 750;
-  text-decoration: none;
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  padding: 0 var(--s-4);
+  border: 1px solid var(--c-accent-teal);
+  border-radius: var(--r-pill);
+  background: var(--c-accent-teal);
+  color: var(--c-accent-teal-fg);
+  font-size: var(--t-small);
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
 }
 
-.action:hover,
-.action:focus-visible { background: #4f1554; }
-.action.secondary { color: var(--purple); background: var(--purple-soft); }
-.action.secondary:hover,
-.action.secondary:focus-visible { background: #ead8ec; }
+.pill--secondary {
+  border-color: var(--fg-3);
+  background: var(--c-surface-strong);
+  color: var(--fg-1);
+}
+
+/* Decorative; every external pill also carries an aria-label. */
+.pill--external::after { content: " \\2197"; }
+
+/* =============================================================
+   Detail page
+   ============================================================= */
+
+.detail {
+  display: grid;
+  gap: var(--s-5);
+}
+
+.detail-copy {
+  display: grid;
+  gap: var(--s-3);
+  align-content: start;
+}
+
+.actions,
+.downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.actions .pill { font-size: var(--t-body); }
 
 .qr-panel {
   margin: 0;
-  padding: 1.25rem;
-  border: 1px solid var(--line);
-  border-radius: 1.5rem;
-  background: white;
-  box-shadow: 0 1.5rem 4rem rgb(62 31 66 / 10%);
+  max-width: 14rem;
+  padding: var(--s-4);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  background: var(--c-surface-strong);
+  box-shadow: var(--shadow-soft);
 }
 
-.qr-panel img { display: block; width: 100%; height: auto; }
-.qr-panel figcaption { margin-top: 1rem; color: var(--muted); font-size: .82rem; }
-.qr-panel code { overflow-wrap: anywhere; color: var(--ink); }
-.quiet { color: var(--muted); }
-
-@keyframes settle-in {
-  from { opacity: 0; transform: translateY(.7rem); }
-  to { opacity: 1; transform: translateY(0); }
+/* The quiet zone stays white in both themes so cameras can still read it. */
+.qr-frame {
+  padding: 12px;
+  border-radius: var(--r-sm);
+  background: #fff;
 }
 
-@media (max-width: 47rem) {
-  .detail-card { grid-template-columns: 1fr; }
-  .qr-panel { max-width: 25rem; }
+.qr-panel img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.qr-panel figcaption {
+  margin-top: var(--s-3);
+  color: var(--fg-2);
+  font-size: var(--t-eyebrow);
+  line-height: 1.6;
+}
+
+.stub {
+  display: grid;
+  gap: var(--s-3);
+  /* The shell flexes to fill the viewport; keep the rows packed at the top
+     instead of letting grid stretch them across the page. */
+  align-content: start;
+  justify-items: start;
+  max-width: var(--maxw-read);
+}
+
+.stub p { margin: 0; }
+
+/* =============================================================
+   Footer
+   ============================================================= */
+
+.site-footer {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  margin-top: var(--s-7);
+  border-top: 1px solid var(--c-border);
+  background: var(--c-paper-tint);
+}
+
+.footer-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-2);
+  max-width: var(--maxw-page);
+  margin: 0 auto;
+  padding: var(--s-4) var(--shell-pad);
+}
+
+.footer-mark {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  color: var(--fg-strong);
+  font-family: var(--t-serif);
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+
+.footer-meta {
+  margin: 0;
+  color: var(--fg-2);
+  font-family: var(--t-mono);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.footer-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* =============================================================
+   Interaction — hover only where a real pointer exists
+   ============================================================= */
+
+@media (hover: hover) and (pointer: fine) {
+  .pill,
+  .card,
+  .jump a,
+  .brand-name,
+  .header-link,
+  .footer-mark,
+  .footer-link {
+    transition:
+      background var(--dur-fast) var(--ease),
+      border-color var(--dur-fast) var(--ease),
+      box-shadow var(--dur-fast) var(--ease),
+      color var(--dur-fast) var(--ease);
+  }
+
+  .pill:hover {
+    border-color: var(--c-accent-teal-hover);
+    background: var(--c-accent-teal-hover);
+  }
+
+  .pill--secondary:hover {
+    border-color: var(--c-accent-teal);
+    background: var(--c-surface-strong);
+    color: var(--c-accent-teal);
+  }
+
+  .card:hover,
+  .card:focus-within {
+    border-color: color-mix(in srgb, var(--c-accent-teal) 45%, var(--c-border-strong));
+    box-shadow: var(--shadow-md);
+  }
+
+  .jump a:hover {
+    border-color: var(--c-accent-teal);
+    color: var(--c-accent-teal);
+  }
+
+  .brand:hover .brand-name,
+  .header-link:hover,
+  .footer-mark:hover,
+  .footer-link:hover { color: var(--c-accent-teal); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero > *,
-  .detail-card .copy,
-  .detail-card .qr-panel,
-  .grid .card { animation: none; }
-  .card a { transition: none; }
+  * { transition: none !important; }
+}
+
+/* =============================================================
+   Responsive steps
+   ============================================================= */
+
+@media (min-width: 721px) {
+  html { scroll-padding-top: 4.5rem; }
+
+  body::before { background-size: 32px 32px; }
+
+  .header-inner {
+    grid-template-columns: auto 1fr auto;
+    gap: var(--s-5);
+    padding: var(--s-1) 28px;
+  }
+
+  .jump {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: start;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .shell { padding-left: 28px; padding-right: 28px; }
+
+  .footer-inner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-5);
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+
+  .footer-meta { text-align: right; }
+}
+
+/* The QR panel only earns a column of its own once the copy keeps 16rem. */
+@media (min-width: 900px) {
+  .detail {
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 24rem);
+    align-items: start;
+    gap: var(--s-6);
+  }
+
+  .qr-panel { max-width: none; }
+}
+
+@media (min-width: 1100px) {
+  .shell { padding-top: var(--s-7); }
+
+  .group { margin-top: var(--s-8); }
 }
 """
 
+STYLE_CSS = _font_face_css() + "\n" + BASE_CSS
 
-def build_outputs(inventory: dict[str, Any]) -> GeneratedOutputs:
+def _font_assets(fonts_dir: Path) -> dict[PurePosixPath, bytes]:
+    """Read the tracked woff2 inputs and their licence for byte-identical reuse."""
+
+    if fonts_dir.is_symlink() or not fonts_dir.is_dir():
+        raise GenerationError(f"missing self-hosted font directory: {fonts_dir}")
+    outputs: dict[PurePosixPath, bytes] = {}
+    for name in (*FONT_FILES, FONT_LICENCE):
+        source = fonts_dir / name
+        if source.is_symlink() or not source.is_file():
+            raise GenerationError(f"missing self-hosted font input: {source}")
+        outputs[PurePosixPath(f"assets/fonts/{name}")] = source.read_bytes()
+    return outputs
+
+
+def build_outputs(
+    inventory: dict[str, Any],
+    *,
+    fonts_dir: Path | None = None,
+) -> GeneratedOutputs:
     """Build every expected file in memory without touching the filesystem."""
 
     origin = inventory["first_party_origin"].rstrip("/")
@@ -528,6 +1335,7 @@ def build_outputs(inventory: dict[str, Any]) -> GeneratedOutputs:
         PurePosixPath("assets/style.css"): STYLE_CSS.encode("utf-8"),
         PurePosixPath("index.html"): _index_page(catalogue_codes, origin=origin).encode("utf-8"),
     }
+    site_outputs.update(_font_assets(FONT_DIR if fonts_dir is None else fonts_dir))
     for code in catalogue_codes:
         slug = code["slug"]
         site_outputs[PurePosixPath(f"assets/qr/{slug}.svg")] = svg_by_slug[slug]
@@ -535,11 +1343,15 @@ def build_outputs(inventory: dict[str, Any]) -> GeneratedOutputs:
     for code in first_party_codes:
         segments = _first_party_route(code["qr_payload"], origin)
         page_path = PurePosixPath(*segments, "index.html")
-        site_outputs[page_path] = _code_page(
-            code,
-            origin=origin,
-            depth=len(segments),
-        ).encode("utf-8")
+        destination = _redirect_destination(code)
+        if destination is not None:
+            # One documented target: a stub that hands over immediately beats a
+            # landing page that renders, advertises downloads and is then torn
+            # away by its own meta refresh.
+            page = _redirect_page(code, destination=destination, depth=len(segments))
+        else:
+            page = _code_page(code, origin=origin, depth=len(segments))
+        site_outputs[page_path] = page.encode("utf-8")
 
     return GeneratedOutputs(qr=qr_outputs, site=site_outputs)
 
@@ -629,6 +1441,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--inventory", type=Path, default=REPO_ROOT / "inventory/codes.json")
     parser.add_argument("--qr-output", type=Path, default=REPO_ROOT / "current/account")
     parser.add_argument("--site-output", type=Path, default=REPO_ROOT / "site")
+    parser.add_argument("--fonts", type=Path, default=FONT_DIR)
     parser.add_argument(
         "--check",
         action="store_true",
@@ -641,7 +1454,7 @@ def main() -> int:
     args = parse_args()
     try:
         inventory = load_valid_inventory(args.inventory)
-        outputs = build_outputs(inventory)
+        outputs = build_outputs(inventory, fonts_dir=args.fonts)
         if args.check:
             errors = compare_tree(outputs.qr, args.qr_output)
             errors.extend(compare_tree(outputs.site, args.site_output))

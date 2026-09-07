@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src &#x27;none&#x27;; img-src &#x27;self&#x27;; style-src &#x27;self&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;">
+  <meta http-equiv="Content-Security-Policy" content="default-src &#x27;none&#x27;; img-src &#x27;self&#x27;; style-src &#x27;self&#x27;; font-src &#x27;self&#x27;; base-uri &#x27;none&#x27;; form-action &#x27;none&#x27;">
   <meta name="referrer" content="no-referrer">
   <title>GitHub profiles | CoMPhy Lab QR</title>
   <meta name="description" content="CoMPhy Lab projects, people, and public code.">
@@ -11,26 +11,44 @@
   <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
-  <main class="shell detail">
-    <a class="brand" href="../index.html" aria-label="CoMPhy Lab QR index">CoMPhy Lab <span>QR</span></a>
-    <article class="detail-card">
-      <div class="copy">
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="../" aria-label="CoMPhy Lab QR catalogue">
+        <span class="brand-mark" aria-hidden="true">Q</span>
+        <span class="brand-name">CoMPhy Lab QR</span>
+      </a>
+      <a class="header-link" href="https://comphy-lab.org/" target="_blank" rel="noopener noreferrer" aria-label="comphy-lab.org (opens in a new tab)">comphy-lab.org</a>
+    </div>
+  </header>
+  <main class="shell">
+    <article class="detail">
+      <div class="detail-copy">
         <p class="eyebrow">Links · First-party route</p>
         <h1>GitHub profiles</h1>
-        <p class="summary">CoMPhy Lab projects, people, and public code.</p>
-        <ul class="actions">
-          <li><a class="action" href="https://comphy-lab.org/" target="_blank" rel="noopener noreferrer">CoMPhy Lab</a></li>
-          <li><a class="action" href="https://comphy-lab.org/team/" target="_blank" rel="noopener noreferrer">CoMPhy Lab team</a></li>
-          <li><a class="action" href="https://github.com/comphy-lab" target="_blank" rel="noopener noreferrer">CoMPhy Lab on GitHub</a></li>
-          <li><a class="action secondary" href="../assets/qr/github-profiles.svg" download="github-profiles.svg">Download SVG</a></li>
-          <li><a class="action secondary" href="../assets/qr/github-profiles.png" download="github-profiles.png">Download PNG</a></li>
+        <p class="lede">CoMPhy Lab projects, people, and public code.</p>
+        <ul class="actions" role="list">
+          <li><a class="pill pill--external" href="https://comphy-lab.org/" target="_blank" rel="noopener noreferrer" aria-label="CoMPhy Lab (opens in a new tab)">CoMPhy Lab</a></li>
+          <li><a class="pill pill--external" href="https://comphy-lab.org/team/" target="_blank" rel="noopener noreferrer" aria-label="CoMPhy Lab team (opens in a new tab)">CoMPhy Lab team</a></li>
+          <li><a class="pill pill--external" href="https://github.com/comphy-lab" target="_blank" rel="noopener noreferrer" aria-label="CoMPhy Lab on GitHub (opens in a new tab)">CoMPhy Lab on GitHub</a></li>
+        </ul>
+        <ul class="downloads" role="list">
+          <li><a class="pill pill--secondary" href="../assets/qr/github-profiles.svg" download="github-profiles.svg" aria-label="Download SVG QR code for GitHub profiles">Download SVG</a></li>
+          <li><a class="pill pill--secondary" href="../assets/qr/github-profiles.png" download="github-profiles.png" aria-label="Download PNG QR code for GitHub profiles">Download PNG</a></li>
         </ul>
       </div>
       <figure class="qr-panel">
-        <img src="../assets/qr/github-profiles.svg" width="600" height="600" alt="QR code for GitHub profiles">
+        <div class="qr-frame">
+          <img src="../assets/qr/github-profiles.svg" width="600" height="600" alt="QR code for GitHub profiles">
+        </div>
         <figcaption>First-party URL<br><code>https://comphy-lab.org/port-qr-codes/github-profiles/</code></figcaption>
       </figure>
     </article>
   </main>
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <a class="footer-mark" href="https://comphy-lab.org/" target="_blank" rel="noopener noreferrer" aria-label="CoMPhy Lab website (opens in a new tab)">CoMPhy Lab</a>
+      <p class="footer-meta">QR artwork and migration ledger: <a class="footer-link" href="https://github.com/comphy-lab/port-qr-codes" target="_blank" rel="noopener noreferrer" aria-label="github.com/comphy-lab/port-qr-codes (opens in a new tab)">github.com/comphy-lab/port-qr-codes</a></p>
+    </div>
+  </footer>
 </body>
 </html>

@@ -22,6 +22,8 @@ which supersedes the third-party dynamic code `https://qrco.de/beQCcR`.
 - `site/`: generated first-party landing pages for multi-link codes.
 - `make_branded_qr_codes.py`: reproducible bespoke branded assets.
 - `assets/`: public branding input used by the generator.
+- `assets/fonts/`: self-hosted SIL OFL web fonts, copied verbatim into
+  `site/assets/fonts/` so the pages make no third-party request.
 - `legacy/`: preserved SVG artwork from the historic Dropbox collection.
 - `DESIGN.md`: asset design and migration rules.
 
@@ -47,12 +49,18 @@ inventory, generation, and decode checks pass on `main`. Each deployment
 fetches every published page and QR download and checks them against the
 validated source. SVG bytes and decoded PNG pixels must match exactly, allowing
 lossless PNG recompression. HTML permits only the hosting provider's known
-Cloudflare beacon insertion. The strict page CSP is preserved.
+Cloudflare beacon insertion. The strict page CSP is preserved; it is
+`default-src 'none'` with `img-src`, `style-src` and `font-src` limited to
+`'self'`, so the pages stay script-free and make no cross-origin request.
 Run `python3 scripts/verify_deployment.py` to repeat that
 live deployment check.
 
-Single-destination routes open their target automatically, with a manual link
-as a fallback. Collections retain their individual links. The
+Single-destination routes are minimal stubs: a meta refresh to the documented
+target, `robots: noindex`, a canonical pointing at that target rather than at
+the stub, and one manual link if the refresh does not fire. They carry no QR
+panel and no download pills, because the refresh removes the document before
+either could be used; both formats stay reachable from the catalogue card.
+Collections retain their individual links on a full landing page. The
 `bursting-bubble-paper` route points to the **2021 viscoplastic paper**;
 `arxiv-bursting-bubbles-ve` directly encodes the **2025 viscoelastic paper's
 arXiv PDF**, `https://arxiv.org/pdf/2408.05089`.
