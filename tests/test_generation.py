@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from pathlib import Path, PurePosixPath
 import tempfile
 import unittest
@@ -47,6 +48,7 @@ class GenerationTests(unittest.TestCase):
             {
                 PurePosixPath("assets/style.css"),
                 PurePosixPath("assets/qr/social-hub.svg"),
+                PurePosixPath("assets/qr/social-hub.png"),
                 PurePosixPath("index.html"),
                 PurePosixPath("social-hub/index.html"),
             },
@@ -70,11 +72,16 @@ class GenerationTests(unittest.TestCase):
         self.assertIn("&lt;script&gt;alert", page)
         self.assertNotIn("fonts.googleapis.com", page)
         self.assertIn('target="_blank" rel="noopener noreferrer"', page)
+        self.assertNotIn('http-equiv="refresh"', page)
+        self.assertIn('download="social-hub.svg"', page)
+        self.assertIn('download="social-hub.png"', page)
         self.assertNotIn("Public links", page)
         self.assertIn("First-party route", page)
         index = outputs.site[PurePosixPath("index.html")].decode("utf-8")
         self.assertNotIn("Public links", index)
-        self.assertIn("First-party replacement", index)
+        self.assertIn('href="social-hub/"', index)
+        self.assertIn('href="assets/qr/social-hub.svg"', index)
+        self.assertIn('href="assets/qr/social-hub.png"', index)
         css = outputs.site[PurePosixPath("assets/style.css")].decode("utf-8")
         self.assertIn(
             'font-family: "Iowan Old Style", Baskerville, Georgia, serif', css
@@ -87,6 +94,75 @@ class GenerationTests(unittest.TestCase):
             "transition: border-color 300ms ease, transform 300ms ease", css
         )
         self.assertIn("@media (prefers-reduced-motion: reduce)", css)
+
+    def test_base_path_is_removed_from_site_routes_without_allowing_traversal(self) -> None:
+        inventory = valid_inventory()
+        inventory["first_party_origin"] = "https://comphy-lab.org/port-qr-codes"
+        inventory["codes"][0]["qr_payload"] = (
+            "https://comphy-lab.org/port-qr-codes/social-hub/"
+        )
+        outputs = build_outputs(inventory)
+        self.assertIn(PurePosixPath("social-hub/index.html"), outputs.site)
+        self.assertNotIn(
+            PurePosixPath("port-qr-codes/social-hub/index.html"), outputs.site
+        )
+        index = outputs.site[PurePosixPath("index.html")].decode("utf-8")
+        self.assertIn('href="social-hub/"', index)
+        self.assertNotIn('href="port-qr-codes/social-hub/"', index)
+
+        inventory["codes"][0]["qr_payload"] = (
+            "https://comphy-lab.org/port-qr-codes/../escape/"
+        )
+        with self.assertRaisesRegex(GenerationError, "unsafe first-party route"):
+            build_outputs(inventory)
+
+    def test_catalogue_includes_downloads_for_external_static_codes(self) -> None:
+        inventory = valid_inventory()
+        inventory["codes"][1] = {
+            "id": "public-paper",
+            "slug": "public-paper",
+            "name": "Public paper",
+            "folder": "Papers",
+            "source_kind": "static",
+            "source_status": "static",
+            "content_type": "pdf",
+            "visibility": "public",
+            "source_short_url": None,
+            "destination": "https://example.org/paper.pdf",
+            "qr_payload": "https://example.org/paper.pdf",
+            "migration_status": "direct-static",
+        }
+        outputs = build_outputs(inventory)
+        self.assertIn(PurePosixPath("assets/qr/public-paper.svg"), outputs.site)
+        self.assertIn(PurePosixPath("assets/qr/public-paper.png"), outputs.site)
+        self.assertNotIn(PurePosixPath("public-paper/index.html"), outputs.site)
+        index = outputs.site[PurePosixPath("index.html")].decode("utf-8")
+        self.assertIn(
+            'href="https://example.org/paper.pdf" target="_blank" '
+            'rel="noopener noreferrer">Open target</a>',
+            index,
+        )
+        self.assertIn('download="public-paper.svg"', index)
+        self.assertIn('download="public-paper.png"', index)
+
+    def test_single_destination_auto_redirect_is_escaped_with_fallback(self) -> None:
+        inventory = deepcopy(valid_inventory())
+        code = inventory["codes"][0]
+        destination = 'https://example.org/open?label="lab"&mode=full'
+        code["content_type"] = "website"
+        code["destination"] = destination
+        code["links"] = []
+        outputs = build_outputs(inventory)
+        page = outputs.site[PurePosixPath("social-hub/index.html")].decode("utf-8")
+        escaped = "https://example.org/open?label=&quot;lab&quot;&amp;mode=full"
+        self.assertIn(
+            f'<meta http-equiv="refresh" content="0; url={escaped}">', page
+        )
+        self.assertIn(f'href="{escaped}"', page)
+        self.assertLess(
+            page.index('http-equiv="Content-Security-Policy"'),
+            page.index('http-equiv="refresh"'),
+        )
 
     def test_write_then_check_detects_no_drift_and_reports_mutation(self) -> None:
         outputs = build_outputs(require_valid_inventory(valid_inventory()))

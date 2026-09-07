@@ -20,3 +20,8 @@ class BrandedGeneratorTests(unittest.TestCase):
             with self.subTest(asset=asset.stem):
                 svg = branded.OUTDIR / f"{asset.stem}.svg"
                 self.assertEqual(svg.read_text(encoding="utf-8"), branded._svg_for(asset))
+
+    def test_every_branded_svg_has_a_png_derivative(self) -> None:
+        expected = {f"{asset.stem}.png" for asset in branded.ASSETS}
+        actual = {path.name for path in branded.OUTDIR.glob("*.png")}
+        self.assertEqual(actual, expected)

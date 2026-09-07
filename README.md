@@ -5,6 +5,10 @@ migration ledger. The inventory covers all 69 codes observed in the source
 account: 14 active dynamic codes, four paused dynamic codes, and 51 static
 codes. Private targets are counted but redacted.
 
+Browse the [QR download catalogue](https://comphy-lab.org/port-qr-codes/)
+for SVG and PNG downloads of all 63 public, non-paused account codes. The three
+[standalone branded codes](current/) also include both formats.
+
 The known contact-card replacement is
 [`https://comphy-lab.org/contact-card/`](https://comphy-lab.org/contact-card/),
 which supersedes the third-party dynamic code `https://qrco.de/beQCcR`.
@@ -36,11 +40,31 @@ landing pages after an inventory change. The bespoke generator needs
 `assets/comphy-lab-mark.png` by default and accepts `COMPHY_QR_MARK` as a
 portable override.
 
+## Published destinations
+
+GitHub Pages publishes `site/` at `https://comphy-lab.org/port-qr-codes/` after
+inventory, generation, and decode checks pass on `main`. Each deployment
+fetches every published page and QR download and checks its bytes against the
+validated source. Run `python3 scripts/verify_deployment.py` to repeat that
+live deployment check.
+
+Single-destination routes open their target automatically, with a manual link
+as a fallback. Collections retain their individual links. The
+`bursting-bubble-paper` route points to the **2021 viscoplastic paper**;
+`arxiv-bursting-bubbles-ve` directly encodes the **2025 viscoelastic paper's
+arXiv PDF**, `https://arxiv.org/pdf/2408.05089`.
+
+The four paused codes remain historical entries without replacement artwork;
+the two private static codes remain redacted. `legacy/` preserves the original
+images, including old vendor URLs. Use `current/` for new artwork.
+
 ## Cutover boundary
 
 An already printed dynamic code still encodes its historical `qrco.de` URL.
 No repository change can rewrite that physical payload. Migration therefore
 means preserving the old evidence, publishing and verifying the replacement,
-then replacing the artwork wherever it is printed or embedded. Generated
-`qr.comphy-lab.org` pages in this repository are prepared source, not a claim
-that DNS or hosting is already live.
+then replacing the artwork wherever it is printed or embedded. The former
+`qr.comphy-lab.org` payloads used an unconfigured subdomain. Replace those
+images with the corresponding files in `current/account/`, which use the
+published `comphy-lab.org/port-qr-codes/` routes. Existing printed images cannot
+be repaired by changing an SVG in this repository.

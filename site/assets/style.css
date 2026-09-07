@@ -89,7 +89,7 @@ a { color: inherit; }
 .grid .card:nth-child(2n) { animation-delay: 45ms; }
 .grid .card:nth-child(3n) { animation-delay: 90ms; }
 
-.card a {
+.card {
   display: grid;
   min-height: 11rem;
   padding: 1.4rem;
@@ -97,18 +97,18 @@ a { color: inherit; }
   border-radius: 1rem;
   background: rgb(255 255 255 / 78%);
   box-shadow: 0 .8rem 2rem rgb(62 31 66 / 5%);
-  text-decoration: none;
   transition: border-color 300ms ease, transform 300ms ease;
 }
 
-.card a:hover,
-.card a:focus-visible {
+.card:hover,
+.card:focus-within {
   border-color: var(--purple);
   transform: translateY(-2px);
 }
 
 .card strong { margin-top: .55rem; font-size: 1.25rem; line-height: 1.2; }
-.card small { align-self: end; margin-top: 1rem; color: var(--muted); }
+.card-links { align-self: end; display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1.5rem; }
+.card-links a { color: var(--purple); font-size: .9rem; font-weight: 750; }
 
 .eyebrow {
   margin: 0;
@@ -142,6 +142,9 @@ a { color: inherit; }
 
 .action:hover,
 .action:focus-visible { background: #4f1554; }
+.action.secondary { color: var(--purple); background: var(--purple-soft); }
+.action.secondary:hover,
+.action.secondary:focus-visible { background: #ead8ec; }
 
 .qr-panel {
   margin: 0;

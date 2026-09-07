@@ -7,6 +7,7 @@ import unittest
 from scripts.inventory import (
     InventoryValidationError,
     load_inventory,
+    is_first_party_url,
     require_valid_inventory,
     validate_inventory,
 )
@@ -167,6 +168,27 @@ class InventoryTests(unittest.TestCase):
         inventory = valid_inventory()
         inventory["codes"][0]["destination"] = PUBLIC_PAYLOAD
         self.assert_error_contains(inventory, "must not loop back")
+
+    def test_first_party_site_may_use_a_project_base_path(self) -> None:
+        inventory = valid_inventory()
+        origin = "https://comphy-lab.org/port-qr-codes"
+        inventory["first_party_origin"] = origin
+        inventory["codes"][0]["qr_payload"] = origin + "/social-hub/"
+        self.assertEqual(validate_inventory(inventory), [])
+        self.assertTrue(is_first_party_url(origin + "/social-hub/", origin))
+        for url in (
+            "https://comphy-lab.org/contact-card/",
+            "https://comphy-lab.org/port-qr-codes-other/social-hub/",
+            "https://example.org/port-qr-codes/social-hub/",
+        ):
+            self.assertFalse(is_first_party_url(url, origin), url)
+
+    def test_first_party_base_path_rejects_ambiguous_or_unsafe_segments(self) -> None:
+        for suffix in ("/../escape", "/%2e%2e/escape", "/a//b", "/a//", "/A", "/a?x=1", "/a#x"):
+            with self.subTest(suffix=suffix):
+                inventory = valid_inventory()
+                inventory["first_party_origin"] = "https://example.org" + suffix
+                self.assert_error_contains(inventory, "first_party_origin:")
 
     def test_unknown_schema_keys_are_rejected(self) -> None:
         inventory = valid_inventory()

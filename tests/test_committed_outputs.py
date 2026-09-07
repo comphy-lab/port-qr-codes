@@ -55,3 +55,11 @@ class CommittedOutputTests(unittest.TestCase):
         for svg_path, payload in expected.items():
             with self.subTest(svg=svg_path.name):
                 self.assert_decodes_exactly(rasterize_svg(svg_path), payload, svg_path)
+
+    def test_all_three_bespoke_pngs_decode_exactly(self) -> None:
+        expected = {branded.OUTDIR / f"{asset.stem}.png": asset.url for asset in branded.ASSETS}
+        self.assertEqual(len(expected), 3)
+        for png_path, payload in expected.items():
+            with self.subTest(png=png_path.name):
+                self.assertTrue(png_path.is_file(), f"missing bespoke PNG: {png_path}")
+                self.assert_decodes_exactly(png_path.read_bytes(), payload, png_path)

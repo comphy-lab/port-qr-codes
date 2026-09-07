@@ -171,9 +171,14 @@ def _normalise_origin(value: Any, errors: list[str]) -> str | None:
     parsed = _parse_https_url(value, "first_party_origin", errors)
     if parsed is None:
         return None
-    if parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
-        errors.append("first_party_origin: must be an origin without a path, query, or fragment")
+    if parsed.query or parsed.fragment:
+        errors.append("first_party_origin: must not contain a query or fragment")
         return None
+    if parsed.path not in {"", "/"}:
+        segments = parsed.path.removeprefix("/").removesuffix("/").split("/")
+        if any(FIRST_PARTY_SEGMENT_RE.fullmatch(segment) is None for segment in segments):
+            errors.append("first_party_origin: base path segments must be lowercase kebab-case")
+            return None
     assert isinstance(value, str)
     return value.rstrip("/")
 
@@ -186,15 +191,11 @@ def _validate_first_party_path(
     errors: list[str],
 ) -> None:
     parsed = urlsplit(value)
-    origin_parsed = urlsplit(origin)
-    if (parsed.scheme, parsed.netloc.casefold()) != (
-        origin_parsed.scheme,
-        origin_parsed.netloc.casefold(),
-    ):
+    if not is_first_party_url(value, origin):
         return
     if parsed.query or parsed.fragment:
         errors.append(f"{location}: first-party URL must not contain a query or fragment")
-    if not parsed.path.endswith("/") or parsed.path == "/":
+    if not parsed.path.endswith("/") or parsed.path.rstrip("/") == urlsplit(origin).path.rstrip("/"):
         errors.append(f"{location}: first-party URL must have a non-root trailing-slash path")
     segments = parsed.path.strip("/").split("/")
     if any(FIRST_PARTY_SEGMENT_RE.fullmatch(segment) is None for segment in segments):
@@ -447,11 +448,7 @@ def validate_inventory(data: dict[str, Any]) -> list[str]:
 
         if origin and isinstance(qr_payload, str):
             parsed_payload = urlsplit(qr_payload)
-            parsed_origin = urlsplit(origin)
-            if (parsed_payload.scheme, parsed_payload.netloc.casefold()) == (
-                parsed_origin.scheme,
-                parsed_origin.netloc.casefold(),
-            ):
+            if is_first_party_url(qr_payload, origin):
                 path = parsed_payload.path
                 if path in first_party_paths:
                     errors.append(
@@ -481,11 +478,15 @@ def load_valid_inventory(path: Path | str) -> dict[str, Any]:
 
 
 def is_first_party_url(value: str, origin: str) -> bool:
-    """Return whether an already-validated URL belongs to ``origin``."""
+    """Return whether a URL is within the site's host and optional base path."""
 
     parsed = urlsplit(value)
     parsed_origin = urlsplit(origin.rstrip("/"))
-    return (parsed.scheme, parsed.netloc.casefold()) == (
+    same_origin = (parsed.scheme, parsed.netloc.casefold()) == (
         parsed_origin.scheme,
         parsed_origin.netloc.casefold(),
+    )
+    base_path = parsed_origin.path.rstrip("/")
+    return same_origin and (
+        parsed.path == base_path or parsed.path.startswith(base_path + "/")
     )

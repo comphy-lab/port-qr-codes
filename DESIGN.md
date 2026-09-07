@@ -27,11 +27,18 @@
 - `private-redacted`: the account entry is counted, but its destination and
   artwork remain outside this public repository.
 
-Every active dynamic replacement uses `https://qr.comphy-lab.org/<slug>/` as
-its proposed stable payload. These static, script-free pages preserve the
+Every active dynamic replacement uses
+`https://comphy-lab.org/port-qr-codes/<slug>/` as its stable payload.
+These static, script-free pages preserve the
 ability to update a destination without depending on a paid QR provider; all
 outbound links must be explicit HTTPS URLs. Existing static codes continue to
 encode their canonical destinations directly.
+
+Each public, non-paused account code is distributed as a matching SVG and PNG
+pair. Single-destination pages automatically open their documented target;
+multi-link pages present their collection. The download catalogue provides
+both formats without requiring a visit to the redirect page. Bespoke branded
+artwork in `current/` also includes PNG derivatives of its SVG sources.
 
 ## Historical assets
 

@@ -7,6 +7,7 @@ import argparse
 import html
 import io
 import os
+import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -34,6 +35,7 @@ CONTENT_TYPE_LABELS = {
     "vcard": "Contact card",
 }
 CSP = "default-src 'none'; img-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'"
+SAFE_ROUTE_SEGMENT_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
 
 
 class GenerationError(RuntimeError):
@@ -111,7 +113,19 @@ def _escape(value: Any) -> str:
     return html.escape(str(value), quote=True)
 
 
-def _page_head(*, title: str, description: str, canonical_url: str, css_href: str) -> str:
+def _page_head(
+    *,
+    title: str,
+    description: str,
+    canonical_url: str,
+    css_href: str,
+    redirect_url: str | None = None,
+) -> str:
+    redirect = (
+        f'  <meta http-equiv="refresh" content="0; url={_escape(redirect_url)}">\n'
+        if redirect_url is not None
+        else ""
+    )
     return (
         "<!doctype html>\n"
         '<html lang="en">\n'
@@ -120,12 +134,54 @@ def _page_head(*, title: str, description: str, canonical_url: str, css_href: st
         '  <meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f'  <meta http-equiv="Content-Security-Policy" content="{_escape(CSP)}">\n'
         '  <meta name="referrer" content="no-referrer">\n'
-        f"  <title>{_escape(title)}</title>\n"
+        + redirect
+        + f"  <title>{_escape(title)}</title>\n"
         f'  <meta name="description" content="{_escape(description)}">\n'
         f'  <link rel="canonical" href="{_escape(canonical_url)}">\n'
         f'  <link rel="stylesheet" href="{_escape(css_href)}">\n'
         "</head>\n"
     )
+
+
+def _first_party_route(value: str, origin: str) -> tuple[str, ...]:
+    """Return a safe route relative to the configured first-party base path."""
+
+    parsed = urlsplit(value)
+    parsed_origin = urlsplit(origin)
+    if (parsed.scheme, parsed.netloc.casefold()) != (
+        parsed_origin.scheme,
+        parsed_origin.netloc.casefold(),
+    ):
+        raise GenerationError(f"first-party route has a different origin: {value}")
+    if parsed.query or parsed.fragment or not parsed.path.endswith("/"):
+        raise GenerationError(f"unsafe first-party route: {value}")
+
+    base_segments = tuple(segment for segment in parsed_origin.path.split("/") if segment)
+    path_segments = tuple(segment for segment in parsed.path.split("/") if segment)
+    if path_segments[: len(base_segments)] != base_segments:
+        raise GenerationError(f"first-party route is outside configured base path: {value}")
+    route = path_segments[len(base_segments) :]
+    if not route or any(SAFE_ROUTE_SEGMENT_RE.fullmatch(segment) is None for segment in route):
+        raise GenerationError(f"unsafe first-party route: {value}")
+    return route
+
+
+def _redirect_destination(code: dict[str, Any]) -> str | None:
+    """Return the validated single destination eligible for automatic navigation."""
+
+    destination = code.get("destination")
+    if not isinstance(destination, str):
+        return None
+    parsed = urlsplit(destination)
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+        or any(character.isspace() or ord(character) < 0x20 for character in destination)
+    ):
+        raise GenerationError(f"unsafe redirect destination for {code['slug']}")
+    return destination
 
 
 def _action_links(code: dict[str, Any]) -> list[tuple[str, str]]:
@@ -149,19 +205,26 @@ def _code_page(code: dict[str, Any], *, origin: str, depth: int) -> str:
     summary = code.get("summary") or "A durable QR destination managed by CoMPhy Lab."
     prefix = "../" * depth
     actions = _action_links(code)
-    action_markup = "\n".join(
+    destination_markup = "\n".join(
         f'          <li><a class="action" href="{_escape(url)}" '
         f'target="_blank" rel="noopener noreferrer">{_escape(label)}</a></li>'
         for label, url in actions
     )
-    if not action_markup:
-        action_markup = '          <li class="quiet">No public destination is attached yet.</li>'
+    if not destination_markup:
+        destination_markup = '          <li class="quiet">No public destination is attached yet.</li>'
+    downloads = (
+        f'          <li><a class="action secondary" href="{prefix}assets/qr/{_escape(code["slug"])}.svg" '
+        f'download="{_escape(code["slug"])}.svg">Download SVG</a></li>\n'
+        f'          <li><a class="action secondary" href="{prefix}assets/qr/{_escape(code["slug"])}.png" '
+        f'download="{_escape(code["slug"])}.png">Download PNG</a></li>'
+    )
     return (
         _page_head(
             title=f"{code['name']} | CoMPhy Lab QR",
             description=summary,
             canonical_url=payload,
             css_href=f"{prefix}assets/style.css",
+            redirect_url=_redirect_destination(code),
         )
         + "<body>\n"
         + '  <main class="shell detail">\n'
@@ -172,7 +235,9 @@ def _code_page(code: dict[str, Any], *, origin: str, depth: int) -> str:
         + f"        <h1>{_escape(code['name'])}</h1>\n"
         + f"        <p class=\"summary\">{_escape(summary)}</p>\n"
         + '        <ul class="actions">\n'
-        + action_markup
+        + destination_markup
+        + "\n"
+        + downloads
         + "\n        </ul>\n"
         + "      </div>\n"
         + '      <figure class="qr-panel">\n'
@@ -191,14 +256,25 @@ def _code_page(code: dict[str, Any], *, origin: str, depth: int) -> str:
 def _index_page(codes: list[dict[str, Any]], *, origin: str) -> str:
     cards: list[str] = []
     for code in codes:
-        parsed = urlsplit(code["qr_payload"])
+        payload = code["qr_payload"]
+        if is_first_party_url(payload, origin):
+            route_href = "/".join(_first_party_route(payload, origin)) + "/"
+            route_label = "Open page"
+            route_target = ""
+        else:
+            route_href = payload
+            route_label = "Open target"
+            route_target = ' target="_blank" rel="noopener noreferrer"'
+        slug = _escape(code["slug"])
         cards.append(
             '      <li class="card">\n'
-            f'        <a href="{_escape(parsed.path.lstrip("/"))}">\n'
-            f'          <span class="eyebrow">{_escape(CONTENT_TYPE_LABELS[code["content_type"]])}</span>\n'
-            f"          <strong>{_escape(code['name'])}</strong>\n"
-            "          <small>First-party replacement</small>\n"
-            "        </a>\n"
+            f'        <span class="eyebrow">{_escape(CONTENT_TYPE_LABELS[code["content_type"]])}</span>\n'
+            f"        <strong>{_escape(code['name'])}</strong>\n"
+            '        <span class="card-links">\n'
+            f'          <a href="{_escape(route_href)}"{route_target}>{route_label}</a>\n'
+            f'          <a href="assets/qr/{slug}.svg" download="{slug}.svg">SVG</a>\n'
+            f'          <a href="assets/qr/{slug}.png" download="{slug}.png">PNG</a>\n'
+            "        </span>\n"
             "      </li>"
         )
     description = "First-party QR destinations maintained by the Computational Multiphase Physics Lab."
@@ -317,7 +393,7 @@ a { color: inherit; }
 .grid .card:nth-child(2n) { animation-delay: 45ms; }
 .grid .card:nth-child(3n) { animation-delay: 90ms; }
 
-.card a {
+.card {
   display: grid;
   min-height: 11rem;
   padding: 1.4rem;
@@ -325,18 +401,18 @@ a { color: inherit; }
   border-radius: 1rem;
   background: rgb(255 255 255 / 78%);
   box-shadow: 0 .8rem 2rem rgb(62 31 66 / 5%);
-  text-decoration: none;
   transition: border-color 300ms ease, transform 300ms ease;
 }
 
-.card a:hover,
-.card a:focus-visible {
+.card:hover,
+.card:focus-within {
   border-color: var(--purple);
   transform: translateY(-2px);
 }
 
 .card strong { margin-top: .55rem; font-size: 1.25rem; line-height: 1.2; }
-.card small { align-self: end; margin-top: 1rem; color: var(--muted); }
+.card-links { align-self: end; display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1.5rem; }
+.card-links a { color: var(--purple); font-size: .9rem; font-weight: 750; }
 
 .eyebrow {
   margin: 0;
@@ -370,6 +446,9 @@ a { color: inherit; }
 
 .action:hover,
 .action:focus-visible { background: #4f1554; }
+.action.secondary { color: var(--purple); background: var(--purple-soft); }
+.action.secondary:hover,
+.action.secondary:focus-visible { background: #ead8ec; }
 
 .qr-panel {
   margin: 0;
@@ -422,14 +501,21 @@ def build_outputs(inventory: dict[str, Any]) -> GeneratedOutputs:
 
     qr_outputs: dict[PurePosixPath, bytes] = {}
     svg_by_slug: dict[str, bytes] = {}
+    png_by_slug: dict[str, bytes] = {}
     for code in eligible:
         slug = code["slug"]
         payload = code["qr_payload"]
         svg = render_svg(payload)
+        png = render_png(payload)
         svg_by_slug[slug] = svg
+        png_by_slug[slug] = png
         qr_outputs[PurePosixPath(f"{slug}.svg")] = svg
-        qr_outputs[PurePosixPath(f"{slug}.png")] = render_png(payload)
+        qr_outputs[PurePosixPath(f"{slug}.png")] = png
 
+    catalogue_codes = sorted(
+        eligible,
+        key=lambda code: (code["name"].casefold(), code["slug"]),
+    )
     first_party_codes = sorted(
         (
             code
@@ -440,18 +526,20 @@ def build_outputs(inventory: dict[str, Any]) -> GeneratedOutputs:
     )
     site_outputs: dict[PurePosixPath, bytes] = {
         PurePosixPath("assets/style.css"): STYLE_CSS.encode("utf-8"),
-        PurePosixPath("index.html"): _index_page(first_party_codes, origin=origin).encode("utf-8"),
+        PurePosixPath("index.html"): _index_page(catalogue_codes, origin=origin).encode("utf-8"),
     }
+    for code in catalogue_codes:
+        slug = code["slug"]
+        site_outputs[PurePosixPath(f"assets/qr/{slug}.svg")] = svg_by_slug[slug]
+        site_outputs[PurePosixPath(f"assets/qr/{slug}.png")] = png_by_slug[slug]
     for code in first_party_codes:
-        parsed = urlsplit(code["qr_payload"])
-        segments = parsed.path.strip("/").split("/")
+        segments = _first_party_route(code["qr_payload"], origin)
         page_path = PurePosixPath(*segments, "index.html")
         site_outputs[page_path] = _code_page(
             code,
             origin=origin,
             depth=len(segments),
         ).encode("utf-8")
-        site_outputs[PurePosixPath(f"assets/qr/{code['slug']}.svg")] = svg_by_slug[code["slug"]]
 
     return GeneratedOutputs(qr=qr_outputs, site=site_outputs)
 
