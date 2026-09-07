@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+from io import BytesIO
 import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError
 
-from scripts.verify_deployment import verify_file
+import png
+
+from scripts.verify_deployment import matches_content, matches_png, verify_file
 
 
 class DeploymentTests(unittest.TestCase):
@@ -38,6 +41,40 @@ class DeploymentTests(unittest.TestCase):
     def test_http_200_with_a_wrong_or_stale_page_is_a_failure(self, fetch) -> None:
         fetch.return_value = self.response(b"unrelated page")
         self.assertIn("content differs", self.check())
+
+    def test_allows_only_the_observed_cloudflare_beacon_before_body_end(self) -> None:
+        expected = b'<html><body>correct content\n</body>\n</html>\n'
+        beacon = (
+            b'<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v123abc" '
+            b'integrity="sha512-YWJjZA==" data-cf-beacon=\'{"token":"public-test-token"}\' '
+            b'crossorigin="anonymous"></script>\n'
+        )
+        actual = expected.replace(b'</body>', beacon + b'</body>')
+        self.assertTrue(matches_content(actual, expected, html=True))
+        for changed in (
+            actual.replace(b'correct content', b'wrong content'),
+            actual.replace(b'static.cloudflareinsights.com', b'example.org'),
+            actual.replace(b'></script>', b'>alert(1)</script>'),
+            actual.replace(b'<script ', b'<script onload="alert(1)" '),
+            actual.replace(b'</body>', beacon + b'</body>'),
+        ):
+            self.assertFalse(matches_content(changed, expected, html=True))
+        self.assertFalse(matches_content(actual, expected, html=False))
+
+    def test_png_recompression_must_preserve_dimensions_and_every_pixel(self) -> None:
+        indexed = BytesIO()
+        png.Writer(2, 1, palette=[(103, 35, 108), (255, 255, 255)]).write(indexed, [[0, 1]])
+        rgb = BytesIO()
+        png.Writer(2, 1, greyscale=False).write(rgb, [[103, 35, 108, 255, 255, 255]])
+        self.assertNotEqual(indexed.getvalue(), rgb.getvalue())
+        self.assertTrue(matches_png(rgb.getvalue(), indexed.getvalue()))
+        changed = BytesIO()
+        png.Writer(2, 1, greyscale=False).write(changed, [[104, 35, 108, 255, 255, 255]])
+        self.assertFalse(matches_png(changed.getvalue(), indexed.getvalue()))
+        resized = BytesIO()
+        png.Writer(1, 2, greyscale=False).write(resized, [[103, 35, 108], [255, 255, 255]])
+        self.assertFalse(matches_png(resized.getvalue(), indexed.getvalue()))
+        self.assertFalse(matches_png(b'not a PNG', indexed.getvalue()))
 
     @patch("scripts.verify_deployment.time.sleep")
     @patch("scripts.verify_deployment.urlopen")

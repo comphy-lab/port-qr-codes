@@ -44,8 +44,11 @@ portable override.
 
 GitHub Pages publishes `site/` at `https://comphy-lab.org/port-qr-codes/` after
 inventory, generation, and decode checks pass on `main`. Each deployment
-fetches every published page and QR download and checks its bytes against the
-validated source. Run `python3 scripts/verify_deployment.py` to repeat that
+fetches every published page and QR download and checks them against the
+validated source. SVG bytes and decoded PNG pixels must match exactly, allowing
+lossless PNG recompression. HTML permits only the hosting provider's known
+Cloudflare beacon insertion. The strict page CSP is preserved.
+Run `python3 scripts/verify_deployment.py` to repeat that
 live deployment check.
 
 Single-destination routes open their target automatically, with a manual link
