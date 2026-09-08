@@ -76,6 +76,25 @@ class DeploymentTests(unittest.TestCase):
         self.assertFalse(matches_png(resized.getvalue(), indexed.getvalue()))
         self.assertFalse(matches_png(b'not a PNG', indexed.getvalue()))
 
+    def test_png_allows_only_invisible_rgb_changes(self) -> None:
+        def rgba(values: list[int]) -> bytes:
+            stream = BytesIO()
+            png.Writer(2, 1, greyscale=False, alpha=True).write(stream, [values])
+            return stream.getvalue()
+
+        expected = rgba([255, 255, 255, 0, 103, 35, 108, 128])
+        normalized = rgba([0, 0, 0, 0, 103, 35, 108, 128])
+        self.assertTrue(matches_png(normalized, expected))
+        self.assertTrue(matches_png(expected, normalized))
+        for changed in (
+            [0, 0, 0, 1, 103, 35, 108, 128],
+            [0, 0, 0, 0, 104, 35, 108, 128],
+            [0, 0, 0, 0, 103, 35, 108, 127],
+            [0, 0, 0, 0, 103, 35, 108, 0],
+        ):
+            with self.subTest(values=changed):
+                self.assertFalse(matches_png(rgba(changed), expected))
+
     @patch("scripts.verify_deployment.time.sleep")
     @patch("scripts.verify_deployment.urlopen")
     def test_retries_a_propagation_404_then_verifies_the_page(self, fetch, sleep) -> None:

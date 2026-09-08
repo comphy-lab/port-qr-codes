@@ -41,16 +41,23 @@ def matches_content(actual: bytes, expected: bytes, *, html: bool) -> bool:
 
 
 def matches_png(actual: bytes, expected: bytes) -> bool:
-    """Allow lossless host recompression only when dimensions and RGBA pixels match."""
+    """Require identical visible pixels and alpha; ignore RGB where alpha is zero."""
     try:
         width, height, rows, _ = png.Reader(bytes=expected).asRGBA8()
         actual_width, actual_height, actual_rows, _ = png.Reader(bytes=actual).asRGBA8()
         if (width, height) != (actual_width, actual_height):
             return False
-        return all(
-            bytes(left) == bytes(right)
-            for left, right in zip(rows, actual_rows, strict=True)
-        )
+        for left, right in zip(rows, actual_rows, strict=True):
+            if bytes(left) == bytes(right):
+                continue
+            for offset in range(0, width * 4, 4):
+                alpha = left[offset + 3]
+                if alpha != right[offset + 3]:
+                    return False
+                # Polish may clear invisible RGB without changing the image.
+                if alpha and left[offset:offset + 3] != right[offset:offset + 3]:
+                    return False
+        return True
     except (png.Error, ValueError, TypeError, zlib.error):
         return False
 

@@ -17,3 +17,5 @@
   and landing pages.
 - Preserved every external destination and QR payload while retaining the
   existing GitHub Actions Pages deployment.
+- Allow PNG optimization to change invisible RGB values while verifying every
+  visible pixel and alpha value.
