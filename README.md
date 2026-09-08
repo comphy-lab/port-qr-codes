@@ -6,7 +6,7 @@ all 69 codes observed in the source account: 14 active dynamic codes, four
 paused dynamic codes, and 51 static codes. Private targets are counted but
 redacted.
 
-Browse the [download catalogue](https://comphy-lab.org/port-qr-codes/) for SVG
+Browse the [download catalogue](https://comphy-lab.org/qr-codes/) for SVG
 and PNG copies of all 63 public, non-paused account codes and the lab and
 university logos. The three [standalone branded codes](current/) also include
 SVG and PNG.
@@ -75,10 +75,9 @@ paper at `https://arxiv.org/pdf/2408.05089`.
 
 ## Publishing and migration
 
-The repository name, `port-qr-codes`, and its published location,
-`https://comphy-lab.org/port-qr-codes/`, already match; this release did not
-rename the repository. The GitHub repository homepage points to the published
-catalogue. Pages deploys through a custom Actions workflow, so a `CNAME` file
+The repository is `comphy-lab/qr-codes`, and the catalogue is published at
+`https://comphy-lab.org/qr-codes/`. Both were renamed from `port-qr-codes`.
+Pages deploys through a custom Actions workflow, so a `CNAME` file
 is neither created nor required; GitHub documents this behaviour in its
 [custom-domain guidance](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site).
 
@@ -88,7 +87,10 @@ and verify the site. GitHub redirects most repository traffic after a rename,
 but excludes Pages project-site URLs; see its
 [repository-renaming guidance](https://docs.github.com/en/repositories/creating-and-managing-repositories/renaming-a-repository).
 
-External destinations and QR payloads are preserved during catalogue changes.
+External destinations are unchanged. The 14 QR codes that used
+`https://comphy-lab.org/port-qr-codes/` now encode the corresponding
+`https://comphy-lab.org/qr-codes/` routes. Replace artwork that encodes the old
+path; GitHub does not provide a redirect for the old Pages URLs.
 An already printed dynamic code still contains its old payload, so publishing a
 replacement cannot alter the printed image. Replace former
 `qr.comphy-lab.org` artwork with the corresponding files under

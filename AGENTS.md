@@ -1,4 +1,4 @@
-# port-qr-codes
+# qr-codes
 
 ## Purpose
 

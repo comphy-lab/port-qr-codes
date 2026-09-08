@@ -171,15 +171,15 @@ class InventoryTests(unittest.TestCase):
 
     def test_first_party_site_may_use_a_project_base_path(self) -> None:
         inventory = valid_inventory()
-        origin = "https://comphy-lab.org/port-qr-codes"
+        origin = "https://comphy-lab.org/qr-codes"
         inventory["first_party_origin"] = origin
         inventory["codes"][0]["qr_payload"] = origin + "/social-hub/"
         self.assertEqual(validate_inventory(inventory), [])
         self.assertTrue(is_first_party_url(origin + "/social-hub/", origin))
         for url in (
             "https://comphy-lab.org/contact-card/",
-            "https://comphy-lab.org/port-qr-codes-other/social-hub/",
-            "https://example.org/port-qr-codes/social-hub/",
+            "https://comphy-lab.org/qr-codes-other/social-hub/",
+            "https://example.org/qr-codes/social-hub/",
         ):
             self.assertFalse(is_first_party_url(url, origin), url)
 

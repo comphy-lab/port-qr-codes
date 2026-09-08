@@ -2,9 +2,9 @@
 
 ## 2026-09-08
 
-- Aligned the repository metadata with the existing `port-qr-codes` name and
-  `https://comphy-lab.org/port-qr-codes/` site. No repository rename was
-  required.
+- Renamed the repository from `comphy-lab/port-qr-codes` to
+  `comphy-lab/qr-codes` and moved the site to
+  `https://comphy-lab.org/qr-codes/`.
 - Changed the catalogue headline to “Useful logos, links, and QR codes.”
 - Organized entries as Team, Research, Teaching, and Blog, following the lab
   site, with PhD thesis material under Research and Logos last.
@@ -15,7 +15,7 @@
 - Renamed both sandbox entries to “Vatsal's Basilisk sandbox”.
 - Removed route-status labels and explanatory route copy from catalogue cards
   and landing pages.
-- Preserved every external destination and QR payload while retaining the
-  existing GitHub Actions Pages deployment.
+- Preserved external destinations and regenerated the 14 QR codes that use
+  the renamed site routes. Retained the GitHub Actions Pages deployment.
 - Allow PNG optimization to change invisible RGB values while verifying every
   visible pixel and alpha value.

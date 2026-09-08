@@ -122,21 +122,21 @@ class GenerationTests(unittest.TestCase):
 
     def test_base_path_is_removed_from_site_routes_without_allowing_traversal(self) -> None:
         inventory = valid_inventory()
-        inventory["first_party_origin"] = "https://comphy-lab.org/port-qr-codes"
+        inventory["first_party_origin"] = "https://comphy-lab.org/qr-codes"
         inventory["codes"][0]["qr_payload"] = (
-            "https://comphy-lab.org/port-qr-codes/social-hub/"
+            "https://comphy-lab.org/qr-codes/social-hub/"
         )
         outputs = build_outputs(inventory)
         self.assertIn(PurePosixPath("social-hub/index.html"), outputs.site)
         self.assertNotIn(
-            PurePosixPath("port-qr-codes/social-hub/index.html"), outputs.site
+            PurePosixPath("qr-codes/social-hub/index.html"), outputs.site
         )
         index = outputs.site[PurePosixPath("index.html")].decode("utf-8")
         self.assertIn('href="social-hub/"', index)
-        self.assertNotIn('href="port-qr-codes/social-hub/"', index)
+        self.assertNotIn('href="qr-codes/social-hub/"', index)
 
         inventory["codes"][0]["qr_payload"] = (
-            "https://comphy-lab.org/port-qr-codes/../escape/"
+            "https://comphy-lab.org/qr-codes/../escape/"
         )
         with self.assertRaisesRegex(GenerationError, "unsafe first-party route"):
             build_outputs(inventory)

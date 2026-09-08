@@ -30,7 +30,7 @@
   artwork remain outside this public repository.
 
 Every active dynamic replacement uses
-`https://comphy-lab.org/port-qr-codes/<slug>/` as its stable payload.
+`https://comphy-lab.org/qr-codes/<slug>/` as its stable payload.
 These static, script-free pages preserve the
 ability to update a destination without depending on a paid QR provider; all
 outbound links must be explicit HTTPS URLs. Existing static codes continue to

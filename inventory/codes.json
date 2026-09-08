@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "source": "QR Code Generator Pro account UI, captured 2026-08-31",
-  "first_party_origin": "https://comphy-lab.org/port-qr-codes",
+  "first_party_origin": "https://comphy-lab.org/qr-codes",
   "codes": [
     {
       "id": "71820136",
@@ -14,7 +14,7 @@
       "visibility": "public",
       "source_short_url": "https://qrco.de/bfT1Pb",
       "destination": null,
-      "qr_payload": "https://comphy-lab.org/port-qr-codes/worthington-jets/",
+      "qr_payload": "https://comphy-lab.org/qr-codes/worthington-jets/",
       "migration_status": "replacement-ready",
       "summary": "Research on inertial flow focusing in impacting drops, collapsing cavities, and impulsively accelerated interfaces.",
       "links": [
@@ -59,7 +59,7 @@
       "visibility": "public",
       "source_short_url": "https://qrco.de/bfOKQH",
       "destination": null,
-      "qr_payload": "https://comphy-lab.org/port-qr-codes/dissipative-anomaly/",
+      "qr_payload": "https://comphy-lab.org/qr-codes/dissipative-anomaly/",
       "migration_status": "replacement-ready",
       "summary": "Cases exemplifying dissipative anomaly in free-surface flows as the Ohnesorge number approaches zero.",
       "links": [
@@ -100,7 +100,7 @@
       "visibility": "public",
       "source_short_url": "https://qrco.de/bf8a0K",
       "destination": null,
-      "qr_payload": "https://comphy-lab.org/port-qr-codes/github-profiles/",
+      "qr_payload": "https://comphy-lab.org/qr-codes/github-profiles/",
       "migration_status": "replacement-ready",
       "summary": "CoMPhy Lab projects, people, and public code.",
       "links": [
@@ -143,7 +143,7 @@
       "visibility": "public",
       "source_short_url": "https://qrco.de/bf6rr7",
       "destination": "https://www.cambridge.org/core/journals/journal-of-fluid-mechanics/article/when-does-an-impacting-drop-stop-bouncing/9A84E13F3F3A4EF1340948B8799E9178",
-      "qr_payload": "https://comphy-lab.org/port-qr-codes/when-does-an-impacting-drop-stop-bouncing/",
+      "qr_payload": "https://comphy-lab.org/qr-codes/when-does-an-impacting-drop-stop-bouncing/",
       "migration_status": "replacement-ready"
     },
     {
@@ -171,7 +171,7 @@
       "visibility": "public",
       "source_short_url": "https://qrco.de/bf6bRp",
       "destination": "https://doi.org/10.1017/jfm.2023.13",
-      "qr_payload": "https://comphy-lab.org/port-qr-codes/drop-impact-jfm/",
+      "qr_payload": "https://comphy-lab.org/qr-codes/drop-impact-jfm/",
       "migration_status": "replacement-ready"
     },
     {
@@ -213,7 +213,7 @@
       "visibility": "public",
       "source_short_url": "https://qrco.de/beQyEf",
       "destination": null,
-      "qr_payload": "https://comphy-lab.org/port-qr-codes/drop-impact-series/",
+      "qr_payload": "https://comphy-lab.org/qr-codes/drop-impact-series/",
       "migration_status": "replacement-ready",
       "summary": "A series of articles elucidating drop-impact forces and related topics.",
       "links": [
@@ -268,7 +268,7 @@
       "visibility": "public",
       "source_short_url": "https://qrco.de/beQZuI",
       "destination": "https://pof.tnw.utwente.nl/media/files/Booklets/PoF25Booklet.pdf",
-      "qr_payload": "https://comphy-lab.org/port-qr-codes/pof25-booklet/",
+      "qr_payload": "https://comphy-lab.org/qr-codes/pof25-booklet/",
       "migration_status": "replacement-ready",
       "summary": "Physics of Fluids 25th-anniversary booklet."
     },
@@ -297,7 +297,7 @@
       "visibility": "public",
       "source_short_url": "https://qrco.de/beQCcR",
       "destination": "https://comphy-lab.org/contact-card/",
-      "qr_payload": "https://comphy-lab.org/port-qr-codes/vatsal-sanjay/",
+      "qr_payload": "https://comphy-lab.org/qr-codes/vatsal-sanjay/",
       "migration_status": "replacement-ready",
       "summary": "CoMPhy Lab contact card with vCard download."
     },
@@ -312,7 +312,7 @@
       "visibility": "public",
       "source_short_url": "https://qrco.de/be8s27",
       "destination": "https://doi.org/10.1017/jfm.2021.489",
-      "qr_payload": "https://comphy-lab.org/port-qr-codes/bursting-bubble-paper/",
+      "qr_payload": "https://comphy-lab.org/qr-codes/bursting-bubble-paper/",
       "migration_status": "replacement-ready"
     },
     {
@@ -326,7 +326,7 @@
       "visibility": "public",
       "source_short_url": "https://qrco.de/be8rrS",
       "destination": null,
-      "qr_payload": "https://comphy-lab.org/port-qr-codes/vatsal-links/",
+      "qr_payload": "https://comphy-lab.org/qr-codes/vatsal-links/",
       "migration_status": "replacement-ready",
       "summary": "Vatsal Sanjay and CoMPhy Lab public sites and profiles.",
       "links": [
@@ -363,7 +363,7 @@
       "visibility": "public",
       "source_short_url": "https://qrco.de/be8rkK",
       "destination": "https://basilisk.fr/sandbox/vatsal/",
-      "qr_payload": "https://comphy-lab.org/port-qr-codes/basilisk-sandbox-dynamic/",
+      "qr_payload": "https://comphy-lab.org/qr-codes/basilisk-sandbox-dynamic/",
       "migration_status": "replacement-ready"
     },
     {
@@ -377,7 +377,7 @@
       "visibility": "public",
       "source_short_url": "https://qrco.de/be8rP6",
       "destination": "https://doi.org/10.1017/jfm.2022.671",
-      "qr_payload": "https://comphy-lab.org/port-qr-codes/taylor-culick-retraction-and-the-influence-of-surrounding-dynamic/",
+      "qr_payload": "https://comphy-lab.org/qr-codes/taylor-culick-retraction-and-the-influence-of-surrounding-dynamic/",
       "migration_status": "replacement-ready"
     },
     {
@@ -391,7 +391,7 @@
       "visibility": "public",
       "source_short_url": "https://qrco.de/bd9aV3",
       "destination": "https://doi.org/10.1103/PhysRevLett.129.104501",
-      "qr_payload": "https://comphy-lab.org/port-qr-codes/prl-two-peaks/",
+      "qr_payload": "https://comphy-lab.org/qr-codes/prl-two-peaks/",
       "migration_status": "replacement-ready",
       "summary": "Impact forces of water drops falling on superhydrophobic surfaces."
     },
@@ -406,7 +406,7 @@
       "visibility": "public",
       "source_short_url": "https://qrco.de/bd9SHU",
       "destination": "https://comphy-lab.org/VatsalSy/phd-thesis/",
-      "qr_payload": "https://comphy-lab.org/port-qr-codes/my-phd-thesis/",
+      "qr_payload": "https://comphy-lab.org/qr-codes/my-phd-thesis/",
       "migration_status": "replacement-ready",
       "summary": "Viscous Free-Surface Flows."
     },

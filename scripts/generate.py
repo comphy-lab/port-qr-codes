@@ -47,8 +47,8 @@ CSP = (
 SAFE_ROUTE_SEGMENT_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
 
 LAB_URL = "https://comphy-lab.org/"
-LEDGER_URL = "https://github.com/comphy-lab/port-qr-codes"
-LEDGER_LABEL = "github.com/comphy-lab/port-qr-codes"
+LEDGER_URL = "https://github.com/comphy-lab/qr-codes"
+LEDGER_LABEL = "github.com/comphy-lab/qr-codes"
 INDEX_DESCRIPTION = "Useful logos, links, and QR codes."
 # Populated sections follow the menu at https://comphy-lab.org/.
 CATEGORIES = ("Team", "Research", "Teaching", "Blog")
