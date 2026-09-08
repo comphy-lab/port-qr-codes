@@ -1,33 +1,54 @@
-# CoMPhy Lab QR codes
+# CoMPhy Lab logos, links, and QR codes
 
-This public repository is the durable source for CoMPhy Lab QR artwork and its
-migration ledger. The inventory covers all 69 codes observed in the source
-account: 14 active dynamic codes, four paused dynamic codes, and 51 static
-codes. Private targets are counted but redacted.
+This repository is the public, reproducible source for CoMPhy Lab QR artwork,
+useful links, and downloadable logo files. Its privacy-filtered inventory covers
+all 69 codes observed in the source account: 14 active dynamic codes, four
+paused dynamic codes, and 51 static codes. Private targets are counted but
+redacted.
 
-Browse the [QR download catalogue](https://comphy-lab.org/port-qr-codes/)
-for SVG and PNG downloads of all 63 public, non-paused account codes. The three
-[standalone branded codes](current/) also include both formats.
+Browse the [download catalogue](https://comphy-lab.org/port-qr-codes/) for SVG
+and PNG copies of all 63 public, non-paused account codes and the lab and
+university logos. The three [standalone branded codes](current/) also include
+SVG and PNG.
 
-The known contact-card replacement is
+The contact-card replacement is
 [`https://comphy-lab.org/contact-card/`](https://comphy-lab.org/contact-card/),
 which supersedes the third-party dynamic code `https://qrco.de/beQCcR`.
 
-## Layout
+## Catalogue
+
+The catalogue follows the public CoMPhy Lab site: **Team**, **Research**,
+**Teaching**, **Blog**, then **Logos**. PhD thesis material appears under
+Research. Empty site sections, including Join Us, are omitted. These groups
+organize the catalogue without changing any destination URL or QR payload. New
+navigation uses `#team`, `#research`, `#teaching`, `#blog`, and `#logos`; the
+former `#link-pages` and `#direct-codes` bookmarks remain as anchor aliases.
+
+Four logo variants retain their original base filenames under `assets/logos/`:
+
+- CoMPhy Lab: `CoMPhy-lab/CoMPhy-Lab`
+- CoMPhy Lab mark: `CoMPhy-lab/CoMPhy-Lab-no-name`
+- Durham University: `Durham/Durham-University`
+- Durham University mark: `Durham/Durham-University_NoText`
+
+Every variant is available as PNG and PDF; SVG is included where an original
+SVG is available. The generator copies these files unchanged to
+`site/assets/logos/`.
+
+## Repository layout
 
 - `inventory/codes.json`: authoritative, privacy-filtered account inventory.
-- `scripts/`: validation, deterministic generation, and QR decode checks.
-- `requirements-lock.txt`: complete, hashed contributor and CI dependencies.
+- `scripts/`: inventory validation, deterministic generation, and deployment
+  checks.
+- `requirements-lock.txt`: complete, hashed Python dependencies.
 - `current/account/`: generated replacements for public account codes.
-- `site/`: generated first-party landing pages for multi-link codes.
-- `make_branded_qr_codes.py`: reproducible bespoke branded assets.
-- `assets/`: public branding input used by the generator.
-- `assets/fonts/`: self-hosted SIL OFL web fonts, copied verbatim into
-  `site/assets/fonts/` so the pages make no third-party request.
-- `legacy/`: preserved SVG artwork from the historic Dropbox collection.
-- `DESIGN.md`: asset design and migration rules.
+- `current/`: standalone branded QR codes in SVG and PNG.
+- `assets/logos/`: original downloadable logo files.
+- `site/`: generated catalogue, landing pages, QR artwork, and logo downloads.
+- `legacy/`: preserved historic SVG artwork.
+- `DESIGN.md`: QR design and migration rules.
 
-## Rebuild
+## Rebuild and verify
 
 ```bash
 python3 -m pip install --require-hashes -r requirements-lock.txt
@@ -36,46 +57,41 @@ python3 scripts/generate.py --check
 python3 -m unittest discover -v
 ```
 
-Run `python3 scripts/generate.py` to refresh the generated account artwork and
-landing pages after an inventory change. The bespoke generator needs
-`rsvg-convert` for PNG/PDF derivatives; it uses
-`assets/comphy-lab-mark.png` by default and accepts `COMPHY_QR_MARK` as a
+Run `python3 scripts/generate.py` after changing the inventory or generated
+catalogue. Do not hand-edit `current/account/` or `site/`. The standalone
+branded-code generator needs `rsvg-convert` for PNG and PDF derivatives; it
+uses `assets/comphy-lab-mark.png` by default and accepts `COMPHY_QR_MARK` as a
 portable override.
 
-## Published destinations
+GitHub Actions validates the inventory, generated files, and decoded QR
+payloads before uploading `site/` unchanged to GitHub Pages. It then compares
+the live pages and downloads with the validated source. Run
+`python3 scripts/verify_deployment.py` to repeat the live check. The published
+HTML remains script-free and uses a restrictive content security policy.
 
-GitHub Pages publishes `site/` at `https://comphy-lab.org/port-qr-codes/` after
-inventory, generation, and decode checks pass on `main`. Each deployment
-fetches every published page and QR download and checks them against the
-validated source. SVG bytes and decoded PNG pixels must match exactly, allowing
-lossless PNG recompression. HTML permits only the hosting provider's known
-Cloudflare beacon insertion. The strict page CSP is preserved; it is
-`default-src 'none'` with `img-src`, `style-src` and `font-src` limited to
-`'self'`, so the pages stay script-free and make no cross-origin request.
-Run `python3 scripts/verify_deployment.py` to repeat that
-live deployment check.
+The `bursting-bubble-paper` entry points to the 2021 viscoplastic paper. The
+`arxiv-bursting-bubbles-ve` entry points directly to the 2025 viscoelastic
+paper at `https://arxiv.org/pdf/2408.05089`.
 
-Single-destination routes are minimal stubs: a meta refresh to the documented
-target, `robots: noindex`, a canonical pointing at that target rather than at
-the stub, and one manual link if the refresh does not fire. They carry no QR
-panel and no download pills, because the refresh removes the document before
-either could be used; both formats stay reachable from the catalogue card.
-Collections retain their individual links on a full landing page. The
-`bursting-bubble-paper` route points to the **2021 viscoplastic paper**;
-`arxiv-bursting-bubbles-ve` directly encodes the **2025 viscoelastic paper's
-arXiv PDF**, `https://arxiv.org/pdf/2408.05089`.
+## Publishing and migration
 
-The four paused codes remain historical entries without replacement artwork;
-the two private static codes remain redacted. `legacy/` preserves the original
-images, including old vendor URLs. Use `current/` for new artwork.
+The repository name, `port-qr-codes`, and its published location,
+`https://comphy-lab.org/port-qr-codes/`, already match; this release did not
+rename the repository. The GitHub repository homepage points to the published
+catalogue. Pages deploys through a custom Actions workflow, so a `CNAME` file
+is neither created nor required; GitHub documents this behaviour in its
+[custom-domain guidance](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site).
 
-## Cutover boundary
+For a future repository rename, update repository remotes, project manifests,
+workflow references, generated base paths, and canonical URLs, then redeploy
+and verify the site. GitHub redirects most repository traffic after a rename,
+but excludes Pages project-site URLs; see its
+[repository-renaming guidance](https://docs.github.com/en/repositories/creating-and-managing-repositories/renaming-a-repository).
 
-An already printed dynamic code still encodes its historical `qrco.de` URL.
-No repository change can rewrite that physical payload. Migration therefore
-means preserving the old evidence, publishing and verifying the replacement,
-then replacing the artwork wherever it is printed or embedded. The former
-`qr.comphy-lab.org` payloads used an unconfigured subdomain. Replace those
-images with the corresponding files in `current/account/`, which use the
-published `comphy-lab.org/port-qr-codes/` routes. Existing printed images cannot
-be repaired by changing an SVG in this repository.
+External destinations and QR payloads are preserved during catalogue changes.
+An already printed dynamic code still contains its old payload, so publishing a
+replacement cannot alter the printed image. Replace former
+`qr.comphy-lab.org` artwork with the corresponding files under
+`current/account/`. The four paused codes remain historical entries without
+replacement artwork, the two private static codes remain redacted, and
+`legacy/` remains the evidence archive. Use `current/` for new artwork.

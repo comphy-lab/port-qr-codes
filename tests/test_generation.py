@@ -13,6 +13,8 @@ from scripts.generate import (
     FONT_DIR,
     FONT_FILES,
     FONT_LICENCE,
+    LOGO_FILES,
+    _logo_assets,
     GenerationError,
     build_outputs,
     compare_tree,
@@ -59,6 +61,9 @@ class GenerationTests(unittest.TestCase):
             | {
                 PurePosixPath(f"assets/fonts/{name}")
                 for name in (*FONT_FILES, FONT_LICENCE)
+            }
+            | {
+                PurePosixPath(f"assets/logos/{name}") for name in LOGO_FILES
             },
         )
 
@@ -84,7 +89,7 @@ class GenerationTests(unittest.TestCase):
         self.assertIn('download="social-hub.svg"', page)
         self.assertIn('download="social-hub.png"', page)
         self.assertNotIn("Public links", page)
-        self.assertIn("First-party route", page)
+        self.assertNotIn("First-party route", page)
         index = outputs.site[PurePosixPath("index.html")].decode("utf-8")
         self.assertNotIn("Public links", index)
         self.assertIn('href="social-hub/"', index)
@@ -269,7 +274,8 @@ class GenerationTests(unittest.TestCase):
             "migration_status": "direct-static",
         }
         index = build_outputs(inventory).site[PurePosixPath("index.html")].decode("utf-8")
-        anchors = re.findall(r"<a\b[^>]*>", index)
+        cards = re.findall(r'<li class="card">(.*?)</li>', index, re.DOTALL)
+        anchors = re.findall(r"<a\b[^>]*>", "".join(cards))
         card_anchors = [tag for tag in anchors if 'class="pill' in tag]
         self.assertEqual(len(card_anchors), 6)
         for tag in card_anchors:
@@ -286,8 +292,8 @@ class GenerationTests(unittest.TestCase):
         self.assertIn(
             'aria-label="Open CoMPhy &lt;social&gt; &amp; links link page"', index
         )
-        self.assertIn('id="link-pages"', index)
-        self.assertIn('id="direct-codes"', index)
+        self.assertIn('id="team"', index)
+        self.assertIn('id="research"', index)
 
     def test_single_destination_route_is_a_minimal_noindex_stub(self) -> None:
         inventory = deepcopy(valid_inventory())
@@ -315,7 +321,7 @@ class GenerationTests(unittest.TestCase):
         self.assertNotIn("<figure", page)
         self.assertNotIn("<ul", page)
         self.assertIn("Continue to the contact card", page)
-        self.assertIn("Taking you to comphy-lab.org.", page)
+        self.assertNotIn("First-party route", page)
 
     def test_multi_link_route_keeps_its_collection_and_never_redirects(self) -> None:
         outputs = build_outputs(require_valid_inventory(valid_inventory()))
@@ -366,6 +372,30 @@ class GenerationTests(unittest.TestCase):
                 build_outputs(
                     require_valid_inventory(valid_inventory()), fonts_dir=empty
                 )
+
+    def test_logo_copy_rejects_missing_files_and_symlinks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            logos = root / "logos"
+            logos.mkdir()
+            outside = root / "outside"
+            outside.mkdir()
+            secret = outside / "CoMPhy-Lab.png"
+            secret.write_bytes(b"must not be published")
+            with self.assertRaisesRegex(GenerationError, "logo input"):
+                _logo_assets(logos)
+            (logos / "CoMPhy-lab").symlink_to(outside, target_is_directory=True)
+            with self.assertRaisesRegex(GenerationError, "logo input"):
+                _logo_assets(logos)
+            (logos / "CoMPhy-lab").unlink()
+            (logos / "CoMPhy-lab").mkdir()
+            (logos / "CoMPhy-lab/CoMPhy-Lab.png").symlink_to(secret)
+            with self.assertRaisesRegex(GenerationError, "logo input"):
+                _logo_assets(logos)
+            alias = root / "alias"
+            alias.symlink_to(logos, target_is_directory=True)
+            with self.assertRaisesRegex(GenerationError, "logo directory"):
+                _logo_assets(alias)
 
 
 if __name__ == "__main__":

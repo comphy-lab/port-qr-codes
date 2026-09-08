@@ -1,2 +1,8 @@
 # Preserve legacy artwork byte-for-byte, including historical whitespace.
 legacy/** -whitespace
+
+# Preserve original logo bytes; PDF is artwork, not line-oriented text.
+assets/logos/** -text
+site/assets/logos/** -text
+assets/logos/**/*.pdf binary
+site/assets/logos/**/*.pdf binary

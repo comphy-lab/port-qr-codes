@@ -49,21 +49,33 @@ SAFE_ROUTE_SEGMENT_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
 LAB_URL = "https://comphy-lab.org/"
 LEDGER_URL = "https://github.com/comphy-lab/port-qr-codes"
 LEDGER_LABEL = "github.com/comphy-lab/port-qr-codes"
-INDEX_DESCRIPTION = (
-    "First-party QR destinations maintained by the Computational Multiphase Physics Lab."
+INDEX_DESCRIPTION = "Useful logos, links, and QR codes."
+# Populated sections follow the menu at https://comphy-lab.org/.
+CATEGORIES = ("Team", "Research", "Teaching", "Blog")
+LOGOS = (
+    ("CoMPhy Lab", "CoMPhy-lab/CoMPhy-Lab", ("png", "svg", "pdf")),
+    ("CoMPhy Lab mark", "CoMPhy-lab/CoMPhy-Lab-no-name", ("png", "pdf")),
+    ("Durham University", "Durham/Durham-University", ("png", "pdf")),
+    ("Durham University mark", "Durham/Durham-University_NoText", ("png", "svg", "pdf")),
 )
-INDEX_LEDE = (
-    "Every public QR code the lab publishes, with its artwork, its exact payload "
-    "and where it points."
-)
-LINK_PAGES_INTRO = (
-    "Codes that resolve to a CoMPhy Lab route, so the destination can be re-pointed "
-    "without reprinting the artwork."
-)
-DIRECT_CODES_INTRO = (
-    "Codes that encode their destination directly; the printed payload cannot be "
-    "changed afterwards."
-)
+LOGO_FILES = tuple(f"{stem}.{ext}" for _, stem, formats in LOGOS for ext in formats)
+
+
+def _category(code: dict[str, Any]) -> str:
+    if code["slug"] in {"github-profiles", "vatsal-links", "vatsal-sanjay"} or code["folder"] == "Public links":
+        return "Team"
+    if code["folder"] in {"Teaching", "workshops"} or code["slug"] in {
+        "scott-kellly-playing-ping-pong", "bursting-soap-bubbles",
+        "culinary-fluid-dynamics", "a-thermomechanical-material-point-method-for-baking-and-cooking",
+    }:
+        return "Teaching"
+    return "Research"
+
+
+def _link_category(url: str, default: str) -> str:
+    if url == "https://blogs.comphy-lab.org/":
+        return "Blog"
+    return default
 
 # ---------------------------------------------------------------------------
 # Self-hosted type. The files are tracked inputs under assets/fonts/ and are
@@ -216,14 +228,14 @@ def _external(href: str, label: str, *, css_class: str, aria_label: str) -> str:
     )
 
 
-def _site_header(*, home_href: str, jump_links: bool) -> str:
+def _site_header(*, home_href: str, jump_links: bool, categories: tuple[str, ...] = CATEGORIES) -> str:
     """Sticky header: brand lockup home, the lab site, and index jump pills."""
 
     jump = (
         '      <nav class="jump" aria-label="Catalogue sections">\n'
-        '        <a href="#link-pages">Link pages</a>\n'
-        '        <a href="#direct-codes">Direct codes</a>\n'
-        "      </nav>\n"
+        + "".join(f'        <a href="#{name.lower()}">{name}</a>\n' for name in categories)
+        + '        <a href="#logos">Logos</a>\n'
+        + "      </nav>\n"
         if jump_links
         else ""
     )
@@ -231,9 +243,8 @@ def _site_header(*, home_href: str, jump_links: bool) -> str:
         '  <header class="site-header">\n'
         '    <div class="header-inner">\n'
         f'      <a class="brand" href="{_escape(home_href)}" '
-        'aria-label="CoMPhy Lab QR catalogue">\n'
-        '        <span class="brand-mark" aria-hidden="true">Q</span>\n'
-        '        <span class="brand-name">CoMPhy Lab QR</span>\n'
+        'aria-label="CoMPhy Lab catalogue">\n'
+        '        <span class="brand-name">CoMPhy Lab</span>\n'
         "      </a>\n"
         + jump
         + "      "
@@ -261,10 +272,10 @@ def _site_footer() -> str:
             aria_label="CoMPhy Lab website (opens in a new tab)",
         )
         + "\n"
-        '      <p class="footer-meta">QR artwork and migration ledger: '
+        '      <p class="footer-meta">'
         + _external(
             LEDGER_URL,
-            LEDGER_LABEL,
+            "Repository",
             css_class="footer-link",
             aria_label=f"{LEDGER_LABEL} (opens in a new tab)",
         )
@@ -364,11 +375,7 @@ def _redirect_page(code: dict[str, Any], *, destination: str, depth: int) -> str
         + "<body>\n"
         + _site_header(home_href=prefix or "./", jump_links=False)
         + '  <main class="shell stub">\n'
-        + f'    <p class="eyebrow">{_escape(CONTENT_TYPE_LABELS[code["content_type"]])}'
-        + " · First-party route</p>\n"
         + f"    <h1>{_escape(code['name'])}</h1>\n"
-        + f'    <p class="lede">Taking you to {_escape(host)}. If nothing happens, '
-        + "use the link below.</p>\n"
         + "    <p>"
         + _external(
             destination,
@@ -387,24 +394,25 @@ def _code_page(code: dict[str, Any], *, origin: str, depth: int) -> str:
     """Full landing page for a first-party route that collects several links."""
 
     payload = code["qr_payload"]
-    summary = code.get("summary") or "A durable QR destination managed by CoMPhy Lab."
+    summary = code.get("summary") or code["name"]
     prefix = "../" * depth
     actions = _action_links(code)
-    destination_markup = "\n".join(
-        "          <li>"
-        + _external(
-            url,
-            label,
-            css_class="pill pill--external",
-            aria_label=f"{label} (opens in a new tab)",
+    groups = []
+    for category in CATEGORIES:
+        links = [(label, url) for label, url in actions
+                 if _link_category(url, _category(code)) == category]
+        if not links:
+            continue
+        items = "\n".join(
+            "          <li>" + _external(
+                url, label, css_class="pill pill--external",
+                aria_label=f"{label} (opens in a new tab)",
+            ) + "</li>" for label, url in links
         )
-        + "</li>"
-        for label, url in actions
-    )
-    if not destination_markup:
-        destination_markup = (
-            '          <li class="quiet">No public destination is attached yet.</li>'
-        )
+        groups.append(f'        <section class="link-group"><h2>{category}</h2>\n'
+                      '        <ul class="actions" role="list">\n'
+                      + items + '\n        </ul></section>\n')
+    destination_markup = "".join(groups)
     return (
         _page_head(
             title=f"{code['name']} | CoMPhy Lab QR",
@@ -417,13 +425,8 @@ def _code_page(code: dict[str, Any], *, origin: str, depth: int) -> str:
         + '  <main class="shell">\n'
         + '    <article class="detail">\n'
         + '      <div class="detail-copy">\n'
-        + f'        <p class="eyebrow">{_escape(CONTENT_TYPE_LABELS[code["content_type"]])}'
-        + " · First-party route</p>\n"
         + f"        <h1>{_escape(code['name'])}</h1>\n"
-        + f'        <p class="lede">{_escape(summary)}</p>\n'
-        + '        <ul class="actions" role="list">\n'
         + destination_markup
-        + "\n        </ul>\n"
         + '        <ul class="downloads" role="list">\n'
         + _downloads_markup(code, prefix)
         + "\n        </ul>\n"
@@ -434,7 +437,7 @@ def _code_page(code: dict[str, Any], *, origin: str, depth: int) -> str:
         + 'width="600" height="600" '
         + f'alt="QR code for {_escape(code["name"])}">\n'
         + "        </div>\n"
-        + "        <figcaption>First-party URL<br><code>"
+        + "        <figcaption><code>"
         + _escape(payload)
         + "</code></figcaption>\n"
         + "      </figure>\n"
@@ -450,17 +453,11 @@ def _index_card(code: dict[str, Any], *, origin: str) -> str:
     payload = code["qr_payload"]
     name = code["name"]
     slug = _escape(code["slug"])
-    kind = _escape(CONTENT_TYPE_LABELS[code["content_type"]])
     if is_first_party_url(payload, origin):
         route_href = "/".join(_first_party_route(payload, origin)) + "/"
         route = (
             f'<a class="pill" href="{_escape(route_href)}" '
             f'aria-label="Open {_escape(name)} link page">Open page</a>'
-        )
-        eyebrow = f"{kind} · First-party route"
-        summary = code.get("summary")
-        summary_markup = (
-            f'          <p class="card-summary">{_escape(summary)}</p>\n' if summary else ""
         )
     else:
         route = _external(
@@ -469,8 +466,6 @@ def _index_card(code: dict[str, Any], *, origin: str) -> str:
             css_class="pill pill--external",
             aria_label=f"Open {name} target (opens in a new tab)",
         )
-        eyebrow = f"{kind} · Direct target"
-        summary_markup = ""
     downloads = "\n".join(
         f'            <a class="pill pill--secondary" href="assets/qr/{slug}.{ext}" '
         f'download="{slug}.{ext}" '
@@ -480,9 +475,7 @@ def _index_card(code: dict[str, Any], *, origin: str) -> str:
     )
     return (
         '        <li class="card">\n'
-        f'          <p class="eyebrow">{eyebrow}</p>\n'
         f"          <h3>{_escape(name)}</h3>\n"
-        + summary_markup
         + '          <div class="card-foot">\n'
         f"            {route}\n"
         + downloads
@@ -497,16 +490,13 @@ def _index_section(
     origin: str,
     section_id: str,
     heading: str,
-    intro: str,
-    empty: str,
 ) -> str:
     cards = [_index_card(code, origin=origin) for code in codes]
-    body = "\n".join(cards) if cards else f'        <li class="quiet">{empty}</li>'
+    body = "\n".join(cards)
     return (
         f'    <section class="group" id="{section_id}">\n'
         '      <div class="group-head">\n'
         f"        <h2>{heading}</h2>\n"
-        f'        <p class="group-intro">{intro}</p>\n'
         "      </div>\n"
         f'      <ul class="card-grid" role="list" aria-label="{heading}">\n'
         + body
@@ -516,40 +506,57 @@ def _index_section(
 
 
 def _index_page(codes: list[dict[str, Any]], *, origin: str) -> str:
-    first_party = [code for code in codes if is_first_party_url(code["qr_payload"], origin)]
-    direct = [code for code in codes if not is_first_party_url(code["qr_payload"], origin)]
+    sections = []
+    populated = []
+    for category in CATEGORIES:
+        grouped = [code for code in codes if _category(code) == category]
+        if grouped:
+            populated.append(category)
+            sections.append(_index_section(grouped, origin=origin,
+                            section_id=category.lower(), heading=category))
+        if category == "Blog":
+            blog_links = dict.fromkeys(
+                (link["label"], link["url"])
+                for code in codes for link in code.get("links", [])
+                if _link_category(link["url"], _category(code)) == "Blog"
+            )
+            if blog_links:
+                populated.append(category)
+                items = "".join('<li>' + _external(
+                    url, label, css_class="pill pill--external",
+                    aria_label=f"{label} (opens in a new tab)") + '</li>'
+                    for label, url in blog_links)
+                sections.append('<section class="group" id="blog"><h2>Blog</h2>'
+                                '<ul class="actions" role="list">' + items + '</ul></section>\n')
+    logo_items = []
+    for label, stem, formats in LOGOS:
+        downloads = "".join(
+            f'<a class="pill pill--secondary" href="assets/logos/{stem}.{ext}" '
+            f'download aria-label="Download {ext.upper()} for {label}">{ext.upper()}</a>'
+            for ext in formats
+        )
+        logo_items.append(f'<li class="logo"><h3>{label}</h3>'
+                          f'<img src="assets/logos/{stem}.png" alt="{label} logo" '
+                          'width="320" height="220" loading="lazy">'
+                          f'<div class="card-foot">{downloads}</div></li>')
+    sections.append('<section class="group" id="logos"><h2>Logos</h2>'
+                    '<ul class="logo-grid" role="list">' + "".join(logo_items) + '</ul></section>\n')
     return (
         _page_head(
-            title="CoMPhy Lab QR destinations",
+            title="CoMPhy Lab logos, links, and QR codes",
             description=INDEX_DESCRIPTION,
             canonical_url=f"{origin}/",
             css_href="assets/style.css",
         )
         + "<body>\n"
-        + _site_header(home_href="./", jump_links=True)
+        + _site_header(home_href="./", jump_links=True, categories=tuple(populated))
         + '  <main class="shell">\n'
         + '    <section class="hero">\n'
-        + '      <p class="eyebrow">CoMPhy Lab · first-party QR destinations</p>\n'
-        + '      <h1 class="hero-title">Useful links, without the rented QR '
-        + "plumbing.</h1>\n"
-        + f'      <p class="lede">{_escape(INDEX_LEDE)}</p>\n'
+        + '      <h1 class="hero-title">Useful logos, links, and QR codes.</h1>\n'
         + "    </section>\n"
-        + _index_section(
-            first_party,
-            origin=origin,
-            section_id="link-pages",
-            heading="Link pages",
-            intro=LINK_PAGES_INTRO,
-            empty="No public link pages yet.",
-        )
-        + _index_section(
-            direct,
-            origin=origin,
-            section_id="direct-codes",
-            heading="Direct codes",
-            intro=DIRECT_CODES_INTRO,
-            empty="No direct codes yet.",
-        )
+        + '    <span id="link-pages" aria-hidden="true"></span>\n'
+        + '    <span id="direct-codes" aria-hidden="true"></span>\n'
+        + "".join(sections)
         + "  </main>\n"
         + _site_footer()
         + "</body>\n"
@@ -638,7 +645,7 @@ BASE_CSS = """\
   --t-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --t-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
-  --t-hero: clamp(44px, 6.2vw, 88px);
+  --t-hero: clamp(36px, 4.5vw, 60px);
   --t-h1: clamp(28px, 3.4vw, 36px);
   --t-h2: clamp(22px, 2.6vw, 28px);
   --t-h3: 20px;
@@ -928,7 +935,7 @@ code {
 
 .hero-title {
   margin: 0;
-  max-width: 18ch;
+  max-width: 26ch;
   font-family: var(--t-display);
   font-style: italic;
   font-weight: 500;
@@ -987,11 +994,8 @@ code {
   display: flex;
   flex-direction: column;
   gap: var(--s-2);
-  padding: var(--s-4);
-  border: 1px solid var(--c-border-strong);
-  border-radius: var(--r-md);
-  background: var(--c-surface-strong);
-  box-shadow: var(--shadow-sm);
+  padding: var(--s-4) 0;
+  border-bottom: 1px solid var(--c-border-strong);
 }
 
 .card h3 {
@@ -1015,7 +1019,30 @@ code {
   gap: var(--s-2);
   margin-top: auto;
   padding-top: var(--s-2);
-  border-top: 1px dashed var(--c-border);
+}
+
+.link-group { margin-top: var(--s-5); }
+.link-group h2 { font-size: var(--t-h3); }
+
+.logo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: var(--s-5);
+  padding: 0;
+  margin: var(--s-5) 0 0;
+  list-style: none;
+}
+
+.logo { min-width: 0; }
+.logo h3 { font-size: var(--t-h3); }
+.logo img {
+  display: block;
+  width: 100%;
+  height: 220px;
+  object-fit: contain;
+  padding: var(--s-4);
+  margin-top: var(--s-3);
+  background: #fff;
 }
 
 /* =============================================================
@@ -1198,7 +1225,6 @@ code {
   .card:hover,
   .card:focus-within {
     border-color: color-mix(in srgb, var(--c-accent-teal) 45%, var(--c-border-strong));
-    box-shadow: var(--shadow-md);
   }
 
   .jump a:hover {
@@ -1221,21 +1247,20 @@ code {
    ============================================================= */
 
 @media (min-width: 721px) {
-  html { scroll-padding-top: 4.5rem; }
-
   body::before { background-size: 32px 32px; }
 
   .header-inner {
-    grid-template-columns: auto 1fr auto;
-    gap: var(--s-5);
+    grid-template-columns: auto auto;
+    gap: 0 var(--s-5);
     padding: var(--s-1) 28px;
   }
 
   .jump {
-    grid-column: 2;
-    grid-row: 1;
+    grid-column: 1 / -1;
+    grid-row: 2;
     justify-self: start;
-    overflow: visible;
+    max-width: 100%;
+    overflow-x: auto;
     padding-bottom: 0;
   }
 
@@ -1284,6 +1309,20 @@ def _font_assets(fonts_dir: Path) -> dict[PurePosixPath, bytes]:
         if source.is_symlink() or not source.is_file():
             raise GenerationError(f"missing self-hosted font input: {source}")
         outputs[PurePosixPath(f"assets/fonts/{name}")] = source.read_bytes()
+    return outputs
+
+
+def _logo_assets(logos_dir: Path) -> dict[PurePosixPath, bytes]:
+    """Copy only the configured regular logo files, without following symlinks."""
+
+    if logos_dir.parent.is_symlink() or logos_dir.is_symlink() or not logos_dir.is_dir():
+        raise GenerationError(f"missing or unsafe logo directory: {logos_dir}")
+    outputs: dict[PurePosixPath, bytes] = {}
+    for name in LOGO_FILES:
+        source = logos_dir / name
+        if source.parent.is_symlink() or source.is_symlink() or not source.is_file():
+            raise GenerationError(f"missing or unsafe logo input: {source}")
+        outputs[PurePosixPath(f"assets/logos/{name}")] = source.read_bytes()
     return outputs
 
 
@@ -1336,6 +1375,7 @@ def build_outputs(
         PurePosixPath("index.html"): _index_page(catalogue_codes, origin=origin).encode("utf-8"),
     }
     site_outputs.update(_font_assets(FONT_DIR if fonts_dir is None else fonts_dir))
+    site_outputs.update(_logo_assets(REPO_ROOT / "assets/logos"))
     for code in catalogue_codes:
         slug = code["slug"]
         site_outputs[PurePosixPath(f"assets/qr/{slug}.svg")] = svg_by_slug[slug]

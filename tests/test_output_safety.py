@@ -4,6 +4,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 import re
 import unittest
+from urllib.parse import unquote, urlsplit
 from defusedxml import ElementTree as ET
 
 from scripts.inventory import is_first_party_url, load_valid_inventory
@@ -27,6 +28,27 @@ class ResourceCollector(HTMLParser):
 
 @unittest.skipUnless(INVENTORY_PATH.exists(), "account inventory is being assembled")
 class OutputSafetyTests(unittest.TestCase):
+    def test_catalogue_navigation_and_downloads_resolve_to_generated_files(self) -> None:
+        parser = ResourceCollector()
+        parser.feed((SITE_ROOT / "index.html").read_text(encoding="utf-8"))
+        ids = {attrs["id"] for _, attrs in parser.resources if "id" in attrs}
+        for tag, attrs in parser.resources:
+            if tag != "a":
+                continue
+            href = urlsplit(attrs.get("href", ""))
+            if href.scheme or href.netloc:
+                continue
+            if href.fragment:
+                self.assertIn(href.fragment, ids)
+            target = SITE_ROOT / unquote(href.path)
+            if target.is_dir():
+                target /= "index.html"
+            self.assertTrue(target.is_file(), attrs)
+        for source in (REPO_ROOT / "assets/logos").rglob("*"):
+            if source.is_file():
+                published = SITE_ROOT / "assets/logos" / source.relative_to(REPO_ROOT / "assets/logos")
+                self.assertEqual(source.read_bytes(), published.read_bytes())
+
     def test_account_snapshot_has_14_owned_dynamic_routes(self) -> None:
         inventory = load_valid_inventory(INVENTORY_PATH)
         active_dynamic = [
