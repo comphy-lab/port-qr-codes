@@ -34,7 +34,7 @@ def valid_inventory() -> dict[str, Any]:
             ],
         }
     ]
-    for index in range(1, 69):
+    for index in range(1, 70):
         codes.append(
             {
                 "id": f"private-redacted-{index}",

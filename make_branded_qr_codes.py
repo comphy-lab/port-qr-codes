@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the three standalone, branded QR assets used by the hero video."""
+"""Generate the standalone, branded QR assets used by the hero video."""
 
 from __future__ import annotations
 
@@ -49,6 +49,12 @@ ASSETS = (
         key="arxiv",
         stem="arxiv-2607.08972-qr",
         url="https://arxiv.org/abs/2607.08972",
+        logo="arxiv",
+    ),
+    QRAsset(
+        key="arxiv-singularities",
+        stem="arxiv-2608.11060-qr",
+        url="https://arxiv.org/pdf/2608.11060",
         logo="arxiv",
     ),
 )
@@ -241,7 +247,9 @@ def build(asset: QRAsset) -> None:
 
 
 def make_arxiv() -> None:
-    build(next(asset for asset in ASSETS if asset.key == "arxiv"))
+    for asset in ASSETS:
+        if asset.logo == "arxiv":
+            build(asset)
 
 
 def main() -> None:

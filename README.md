@@ -2,13 +2,13 @@
 
 This repository is the public, reproducible source for CoMPhy Lab QR artwork,
 useful links, and downloadable logo files. Its privacy-filtered inventory covers
-all 69 codes observed in the source account: 14 active dynamic codes, four
-paused dynamic codes, and 51 static codes. Private targets are counted but
-redacted.
+70 codes: 69 observed in the source account plus one added public static paper
+code, comprising 14 active dynamic codes, four paused dynamic codes, and 52
+static codes. Private targets are counted but redacted.
 
 Browse the [download catalogue](https://comphy-lab.org/qr-codes/) for SVG
-and PNG copies of all 63 public, non-paused account codes and the lab and
-university logos. The three [standalone branded codes](current/) also include
+and PNG copies of all 64 public, non-paused account codes and the lab and
+university logos. The four [standalone branded codes](current/) also include
 SVG and PNG.
 
 The contact-card replacement is
@@ -71,7 +71,9 @@ HTML remains script-free and uses a restrictive content security policy.
 
 The `bursting-bubble-paper` entry points to the 2021 viscoplastic paper. The
 `arxiv-bursting-bubbles-ve` entry points directly to the 2025 viscoelastic
-paper at `https://arxiv.org/pdf/2408.05089`.
+paper at `https://arxiv.org/pdf/2408.05089`. The
+`arxiv-singularities-soft-matter` entry points directly to
+`https://arxiv.org/pdf/2608.11060`.
 
 ## Publishing and migration
 

@@ -369,7 +369,7 @@
     {
       "id": "52940324",
       "slug": "taylor-culick-retraction-and-the-influence-of-surrounding-dynamic",
-      "name": "Taylor–Culick retractions",
+      "name": "Taylor\u2013Culick retractions",
       "folder": "DynamicCodes",
       "source_kind": "dynamic",
       "source_status": "active",
@@ -843,6 +843,21 @@
       "destination": "https://arxiv.org/pdf/2408.05089",
       "qr_payload": "https://arxiv.org/pdf/2408.05089",
       "migration_status": "direct-static"
+    },
+    {
+      "id": "90011060",
+      "slug": "arxiv-singularities-soft-matter",
+      "name": "ArXiv: Singularities in Soft Matter Systems",
+      "folder": "Papers",
+      "source_kind": "static",
+      "source_status": "static",
+      "content_type": "website",
+      "visibility": "public",
+      "source_short_url": null,
+      "destination": "https://arxiv.org/pdf/2608.11060",
+      "qr_payload": "https://arxiv.org/pdf/2608.11060",
+      "migration_status": "direct-static",
+      "summary": "Singularities in Soft Matter Systems (arXiv:2608.11060)."
     },
     {
       "id": "58273490",
